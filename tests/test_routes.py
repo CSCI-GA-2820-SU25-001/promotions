@@ -68,8 +68,11 @@ class TestYourResourceService(TestCase):
     ######################################################################
 
     def test_index(self):
-        """It should call the home page"""
+        """It should return the service root info"""
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-
-    # Todo: Add your test cases here...
+        data = resp.get_json()
+        self.assertIsNotNone(data)
+        self.assertEqual(data["name"], "Promotions REST API")
+        self.assertEqual(data["version"], "1.0")
+        self.assertEqual(data["list_endpoint"], "/promotions")

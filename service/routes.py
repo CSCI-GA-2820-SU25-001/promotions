@@ -16,7 +16,6 @@
 
 """
 YourResourceModel Service
-
 This service implements a REST API that allows you to Create, Read, Update
 and Delete YourResourceModel
 """
@@ -32,7 +31,7 @@ from service.common import status  # HTTP Status Codes
 ######################################################################
 @app.route("/", methods=["GET"])
 def index():
-    """Root URL response that describes the service"""
+    """Root endpoint for the Promotions service"""
     return (
         jsonify({
             "name": "Promotions REST API",
