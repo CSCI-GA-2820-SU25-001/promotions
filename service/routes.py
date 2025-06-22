@@ -58,8 +58,9 @@ def create_promotions():
     promotion.deserialize(data)
     promotion.create()
     app.logger.info("promotion with new id [%s] saved!", promotion.id)
-    location_url = url_for("get_promotion", promotion_id=promotion.id, _external=True)
-    #location_url = "unknown"
+    #umcomment when list all promotion and can read by id is done
+    #location_url = url_for("get_promotion", promotion_id=promotion.id, _external=True)
+    location_url = "unknown"
     return (
         jsonify(promotion.serialize()),
         status.HTTP_201_CREATED,
