@@ -81,6 +81,7 @@ class TestYourResourceModel(TestCase):
 
     # Todo: Add your test cases here...
 
+
 class TestPromotionModel(TestCase):
     """Test Cases for Promotion Model"""
 
@@ -119,7 +120,7 @@ class TestPromotionModel(TestCase):
             product_id=1001,
             amount=10.0,
             start_date=date(2025, 6, 1),
-            end_date=date(2025, 6, 30)
+            end_date=date(2025, 6, 30),
         )
         promo.create()
         self.assertIsNotNone(promo.id)
@@ -135,7 +136,7 @@ class TestPromotionModel(TestCase):
             product_id=1002,
             amount=5.0,
             start_date=date(2025, 12, 1),
-            end_date=date(2025, 12, 31)
+            end_date=date(2025, 12, 31),
         )
         promo.create()
         promo.amount = 8.0
@@ -151,7 +152,7 @@ class TestPromotionModel(TestCase):
             product_id=1003,
             amount=1.0,
             start_date=date(2025, 7, 1),
-            end_date=date(2025, 7, 15)
+            end_date=date(2025, 7, 15),
         )
         promo.create()
         promo_id = promo.id
@@ -166,7 +167,7 @@ class TestPromotionModel(TestCase):
             product_id=1004,
             amount=25.0,
             start_date=date(2025, 11, 25),
-            end_date=date(2025, 12, 1)
+            end_date=date(2025, 12, 1),
         )
         result = promo.serialize()
         self.assertEqual(result["name"], "Cyber Week")
@@ -180,7 +181,7 @@ class TestPromotionModel(TestCase):
             "product_id": 1005,
             "amount": 7.0,
             "start_date": "2025-08-01",
-            "end_date": "2025-08-15"
+            "end_date": "2025-08-15",
         }
         promo = Promotion()
         promo.deserialize(data)
@@ -195,7 +196,7 @@ class TestPromotionModel(TestCase):
             product_id=1006,
             amount=12.0,
             start_date=date(2025, 9, 1),
-            end_date=date(2025, 9, 30)
+            end_date=date(2025, 9, 30),
         )
         promo.create()
         results = Promotion.find_by_name("Mega Discount")
@@ -210,7 +211,7 @@ class TestPromotionModel(TestCase):
             "product_id": 1007,
             "amount": 5.0,
             "start_date": "2025-09-01",
-            "end_date": "2025-09-30"
+            "end_date": "2025-09-30",
         }
         promo = Promotion()
         with self.assertRaises(DataValidationError):

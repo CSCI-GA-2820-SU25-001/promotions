@@ -6,9 +6,9 @@ All of the models are stored in this module
 
 import logging
 from flask_sqlalchemy import SQLAlchemy
-from flask_sqlalchemy import Enum
+from enum import Enum
 from datetime import date
-# from enum import Enum
+
 
 logger = logging.getLogger("flask.app")
 
@@ -128,11 +128,14 @@ class YourResourceModel(db.Model):
 
 # new code from here
 
+
 class PromoType(Enum):
     """Enumeration of valid Promotion Types"""
+
     PERCENT_OFF = "PERCENT_OFF"
     BOGO = "BOGO"
     AMOUNT_OFF = "AMOUNT_OFF"
+
 
 class Promotion(db.Model):
     """
@@ -219,7 +222,9 @@ class Promotion(db.Model):
         except AttributeError as error:
             raise DataValidationError("Invalid attribute: " + error.args[0]) from error
         except KeyError as error:
-            raise DataValidationError("Invalid Promotion: missing " + error.args[0]) from error
+            raise DataValidationError(
+                "Invalid Promotion: missing " + error.args[0]
+            ) from error
         except (TypeError, ValueError) as error:
             raise DataValidationError(
                 "Invalid Promotion: bad or malformed data " + str(error)
@@ -250,4 +255,4 @@ class Promotion(db.Model):
             name (string): the name of the Promotions to match
         """
         logger.info("Processing name query for %s ...", name)
-        return cls.query.filter(cls.name == name)
+        return cls.query.filter(cls.name == name).all()
