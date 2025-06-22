@@ -59,7 +59,7 @@ def create_promotions():
     promotion.create()
     app.logger.info("promotion with new id [%s] saved!", promotion.id)
     location_url = url_for("get_promotion", promotion_id=promotion.id, _external=True)
-
+    #location_url = "unknown"
     return (
         jsonify(promotion.serialize()),
         status.HTTP_201_CREATED,
@@ -67,7 +67,7 @@ def create_promotions():
     )
 
 ######################################################################
-# LIST ALL PRODUCTS
+# LIST ALL PROMOTION
 ######################################################################
 @app.route("/promotions", methods=["GET"])
 def list_promotions():
