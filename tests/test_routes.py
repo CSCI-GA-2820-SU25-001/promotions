@@ -25,6 +25,7 @@ from unittest import TestCase
 from wsgi import app
 from service.common import status
 from service.models import db, Promotion
+from service.models import DataValidationError
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql+psycopg://postgres:postgres@localhost:5432/testdb"
@@ -56,7 +57,7 @@ class TestYourResourceService(TestCase):
     def setUp(self):
         """Runs before each test"""
         self.client = app.test_client()
-        db.session.query(YourResourceModel).delete()  # clean up the last tests
+        db.session.query(Promotion).delete()  # clean up the last tests
         db.session.commit()
 
     def tearDown(self):
@@ -137,4 +138,35 @@ class TestYourResourceService(TestCase):
         data = response.get_json()
         self.assertIsInstance(data, list)
         self.assertEqual(len(data), 2)
+    
+    
+    
+    def test_deserialize_with_bad_type(self):
+        """It should raise DataValidationError for bad type"""
+        data = {
+        "name": "Bad Amount",
+        "promo_type": "PERCENT_OFF",
+        "product_id": 1008,
+        "amount": "twenty",  
+        "start_date": "2025-01-01",
+        "end_date": "2025-01-10"
+    }
 
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
+
+
+    def test_deserialize_missing_field(self):
+        """It should raise DataValidationError for missing name"""
+        data = {
+        "promo_type": "PERCENT_OFF",
+        "product_id": 1001,
+        "amount": 20.0,
+        "start_date": "2025-01-01",
+        "end_date": "2025-01-10"
+    }
+
+        promo = Promotion()
+        with self.assertRaises(DataValidationError):
+            promo.deserialize(data)
