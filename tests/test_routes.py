@@ -24,7 +24,7 @@ import logging
 from unittest import TestCase
 from wsgi import app
 from service.common import status
-from service.models import db, YourResourceModel
+from service.models import db, Promotion
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql+psycopg://postgres:postgres@localhost:5432/testdb"
@@ -68,8 +68,73 @@ class TestYourResourceService(TestCase):
     ######################################################################
 
     def test_index(self):
-        """It should call the home page"""
+        """It should return the service root info"""
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertIsNotNone(data)
+        self.assertEqual(data["name"], "Promotions REST API")
+        self.assertEqual(data["version"], "1.0")
+        self.assertEqual(data["list_endpoint"], "/promotions")
 
-    # Todo: Add your test cases here...
+
+    def test_create_promotion(self):
+        """It should Create a new Promotion"""
+        test_promotion = {
+            "name": "Flash Sale",
+            "promo_type": "PERCENT_OFF",  # valid enum
+            "product_id": 123,
+            "amount": 25.0,
+            "start_date": "2025-06-01",
+            "end_date": "2025-06-30"
+        }
+
+        response = self.client.post("/promotions", json=test_promotion)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Check Location header
+        location = response.headers.get("Location", None)
+        self.assertIsNotNone(location)
+        self.assertEqual(location, "unknown")  
+
+        # Validate returned promotion
+        data = response.get_json()
+        self.assertEqual(data["name"], test_promotion["name"])
+        self.assertEqual(data["promo_type"], test_promotion["promo_type"])
+        self.assertEqual(data["product_id"], test_promotion["product_id"])
+        self.assertEqual(data["amount"], test_promotion["amount"])
+        self.assertEqual(data["start_date"], test_promotion["start_date"])
+        self.assertEqual(data["end_date"], test_promotion["end_date"])
+
+    def test_list_all_promotions(self):
+        """It should return a list of all Promotions"""
+        # Create 2 promotions first
+        promo_1 = {
+            "name": "Summer Sale",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 101,
+            "amount": 10.0,
+            "start_date": "2025-06-01",
+            "end_date": "2025-06-15"
+        }
+
+        promo_2 = {
+            "name": "BOGO Offer",
+            "promo_type": "BOGO",
+            "product_id": 102,
+            "amount": 1.0,
+            "start_date": "2025-06-05",
+            "end_date": "2025-06-20"
+        }
+
+        self.client.post("/promotions", json=promo_1)
+        self.client.post("/promotions", json=promo_2)
+
+        # call GET /promotions
+        response = self.client.get("/promotions")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.get_json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 2)
+
