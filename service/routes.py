@@ -97,3 +97,33 @@ def check_content_type(expected_type):
 ######################################################################
 
 # Todo: Place your REST API code here ...
+
+######################################################################
+# CREATE A NEW PROMOTION
+######################################################################
+@app.route("/promotion", methods=["POST"])
+def create_promotion():
+    """
+    Create a new promotion
+    This endpoint will create a new promotion based the data in the body that's posted
+    """
+    app.logger.info("Request to Create a promotion...")
+    check_content_type("application/json")
+
+    promotion = Promotion()
+    # Get data from the request and deserialize it
+    data = request.get_json()
+    app.logger.info("Processing: %s", data)
+    promotion.deserialize(data)
+
+    # Save the new promotion to the database
+    promotion.create()
+    app.logger.info("promotion with new id [%s] saved!", promotion.id)
+
+    # Return the location of the new promotion
+    location_url = url_for("get_promotions", promotion_id=promotion.id, _external=True)
+    return (
+        jsonify(promotion.serialize()),
+        status.HTTP_201_CREATED,
+        {"Location": location_url},
+    )
