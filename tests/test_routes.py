@@ -23,6 +23,7 @@ import os
 import logging
 from unittest import TestCase
 from wsgi import app
+from service import create_app
 from service.common import status
 from service.models import db, Promotion
 
@@ -56,7 +57,7 @@ class TestYourResourceService(TestCase):
     def setUp(self):
         """Runs before each test"""
         self.client = app.test_client()
-        db.session.query(YourResourceModel).delete()  # clean up the last tests
+        db.session.query(Promotion).delete()  # clean up the last tests
         db.session.commit()
 
     def tearDown(self):
@@ -137,4 +138,17 @@ class TestYourResourceService(TestCase):
         data = response.get_json()
         self.assertIsInstance(data, list)
         self.assertEqual(len(data), 2)
+    #test to trigger check_content_type error to make the coverage above 95%
+    def test_create_promotion_with_wrong_content_type(self):
+        """It should return 415 UNSUPPORTED MEDIA TYPE if Content-Type is wrong"""
+        test_data = {
+            "name": "Flash Sale",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 101,
+            "amount": 20.0,
+            "start_date": "2025-06-01",
+            "end_date": "2025-06-30"
+        }
 
+        response = self.client.post("/promotions", data=str(test_data), headers={"Content-Type": "text/plain"})
+        self.assertEqual(response.status_code, 415)
