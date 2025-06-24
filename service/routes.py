@@ -33,13 +33,24 @@ from service.common import status  # HTTP Status Codes
 def index():
     """Root endpoint for the Promotions service"""
     return (
-        jsonify({
-            "name": "Promotions REST API",
-            "version": "1.0",
-            "list_endpoint": "/promotions"
-        }),
-        status.HTTP_200_OK
+        jsonify(
+            {
+                "name": "Promotions REST API",
+                "version": "1.0",
+                "list_endpoint": "/promotions",
+            }
+        ),
+        status.HTTP_200_OK,
     )
+
+
+######################################################################
+#  R E S T   A P I   E N D P O I N T S
+######################################################################
+
+# Todo: Place your REST API code here ...
+
+
 ######################################################################
 # CREATE A NEW PROMOTION
 ######################################################################
@@ -48,24 +59,24 @@ def create_promotions():
     """
     Create a Promotion
     """
-    app.logger.info("Request to create a Promotion...") 
+    app.logger.info("Request to create a Promotion...")
     check_content_type("application/json")
 
     promotion = Promotion()
-    #get data from the request and deserialization
+    # get data from the request and deserialization
     data = request.get_json()
     app.logger.debug("processing = %s", data)
     promotion.deserialize(data)
     promotion.create()
     app.logger.info("promotion with new id [%s] saved!", promotion.id)
-    #umcomment when list all promotion and can read by id is done
-    #location_url = url_for("get_promotion", promotion_id=promotion.id, _external=True)
-    location_url = "unknown"
+    # umcomment when list all promotion and can read by id is done
+    location_url = url_for("get_promotion", promotion_id=promotion.id, _external=True)
     return (
         jsonify(promotion.serialize()),
         status.HTTP_201_CREATED,
-        {"Location": location_url}
+        {"Location": location_url},
     )
+
 
 ######################################################################
 # LIST ALL PROMOTION
@@ -80,6 +91,7 @@ def list_promotions():
 
     return jsonify(results), status.HTTP_200_OK
 
+
 ######################################################################
 # HELPER FUNCTION
 ######################################################################
@@ -90,40 +102,68 @@ def check_content_type(expected_type):
         app.logger.error("Invalid Content-Type: %s", content_type)
         abort(
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            f"Content-Type must be {expected_type}"
+            f"Content-Type must be {expected_type}",
         )
-######################################################################
-#  R E S T   A P I   E N D P O I N T S
-######################################################################
 
-# Todo: Place your REST API code here ...
 
 ######################################################################
-# CREATE A NEW PROMOTION
+# READ A PROMOTION BY ID
 ######################################################################
-@app.route("/promotion", methods=["POST"])
-def create_promotion():
-    """
-    Create a new promotion
-    This endpoint will create a new promotion based the data in the body that's posted
-    """
-    app.logger.info("Request to Create a promotion...")
+@app.route("/promotions/<int:promotion_id>", methods=["GET"])
+def get_promotion(promotion_id):
+    """Return a single Promotion by its ID"""
+    app.logger.info("Request for Promotion with id: %s", promotion_id)
+    promotion = Promotion.find(promotion_id)
+    if not promotion:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Promotion with id '{promotion_id}' was not found.",
+        )
+    return jsonify(promotion.serialize()), status.HTTP_200_OK
+
+
+######################################################################
+# UPDATE A PROMOTION
+######################################################################
+@app.route("/promotions/<int:promotion_id>", methods=["PUT"])
+def update_promotion(promotion_id):
+    """Update an existing Promotion"""
+    app.logger.info("Request to update Promotion with id: %s", promotion_id)
     check_content_type("application/json")
 
-    promotion = Promotion()
-    # Get data from the request and deserialize it
+    promotion = Promotion.find(promotion_id)
+    if not promotion:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Promotion with id '{promotion_id}' was not found.",
+        )
+
     data = request.get_json()
-    app.logger.info("Processing: %s", data)
+    # If the body contains an id, make sure it matches the path
+    if "id" in data and data["id"] != promotion_id:
+        abort(
+            status.HTTP_400_BAD_REQUEST,
+            "The id in the request body does not match the resource path.",
+        )
+
     promotion.deserialize(data)
+    promotion.id = promotion_id  # preserve correct id
+    promotion.update()
 
-    # Save the new promotion to the database
-    promotion.create()
-    app.logger.info("promotion with new id [%s] saved!", promotion.id)
+    return jsonify(promotion.serialize()), status.HTTP_200_OK
 
-    # Return the location of the new promotion
-    location_url = url_for("get_promotions", promotion_id=promotion.id, _external=True)
-    return (
-        jsonify(promotion.serialize()),
-        status.HTTP_201_CREATED,
-        {"Location": location_url},
-    )
+
+######################################################################
+# DELETE A PROMOTION
+######################################################################
+@app.route("/promotions/<int:promotion_id>", methods=["DELETE"])
+def delete_promotion(promotion_id):
+    """Delete a Promotion by its ID"""
+    app.logger.info("Request to delete Promotion with id: %s", promotion_id)
+    promotion = Promotion.find(promotion_id)
+
+    # RFC-conformant: DELETE is idempotent—return 204 even if nothing to delete
+    if promotion:
+        promotion.delete()
+
+    return "", status.HTTP_204_NO_CONTENT
