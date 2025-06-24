@@ -23,63 +23,16 @@ import os
 import logging
 from unittest import TestCase
 from wsgi import app
-from service.models import YourResourceModel, DataValidationError, db
+from service.models import DataValidationError, db
 from .factories import YourResourceModelFactory
 from datetime import date
+from unittest.mock import patch
 
 from service.models import Promotion, PromoType
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql+psycopg://postgres:postgres@localhost:5432/testdb"
 )
-
-
-######################################################################
-#  YourResourceModel   M O D E L   T E S T   C A S E S
-######################################################################
-# pylint: disable=too-many-public-methods
-class TestYourResourceModel(TestCase):
-    """Test Cases for YourResourceModel Model"""
-
-    @classmethod
-    def setUpClass(cls):
-        """This runs once before the entire test suite"""
-        app.config["TESTING"] = True
-        app.config["DEBUG"] = False
-        app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URI
-        app.logger.setLevel(logging.CRITICAL)
-        app.app_context().push()
-
-    @classmethod
-    def tearDownClass(cls):
-        """This runs once after the entire test suite"""
-        db.session.close()
-
-    def setUp(self):
-        """This runs before each test"""
-        db.session.query(YourResourceModel).delete()  # clean up the last tests
-        db.session.commit()
-
-    def tearDown(self):
-        """This runs after each test"""
-        db.session.remove()
-
-    ######################################################################
-    #  T E S T   C A S E S
-    ######################################################################
-
-    def test_example_replace_this(self):
-        """It should create a YourResourceModel"""
-        # Todo: Remove this test case example
-        resource = YourResourceModelFactory()
-        resource.create()
-        self.assertIsNotNone(resource.id)
-        found = YourResourceModel.all()
-        self.assertEqual(len(found), 1)
-        data = YourResourceModel.find(resource.id)
-        self.assertEqual(data.name, resource.name)
-
-    # Todo: Add your test cases here...
 
 
 class TestPromotionModel(TestCase):
@@ -216,3 +169,119 @@ class TestPromotionModel(TestCase):
         promo = Promotion()
         with self.assertRaises(DataValidationError):
             promo.deserialize(bad_data)
+
+    def _make_promo(self, name="Failure Path"):
+        return Promotion(
+            name=name,
+            promo_type=PromoType.BOGO.name,
+            product_id=222,
+            amount=1.0,
+            start_date=date(2025, 2, 1),
+            end_date=date(2025, 2, 2),
+        )
+
+    # -----------------------------------------------------------------
+    #  __repr__
+    # -----------------------------------------------------------------
+    def test_repr(self):
+        """__repr__ should include name and id in the expected format"""
+        promo = self._make_promo("Repr Test")
+        promo.id = 42  # fake primary key to avoid DB hit
+        self.assertEqual(repr(promo), "<Promotion Repr Test id=[42]>")
+
+    # -----------------------------------------------------------------
+    #  Error handling in create / update / delete
+    # -----------------------------------------------------------------
+    def test_create_database_error(self):
+        """create() must rollback and raise DataValidationError on commit failure"""
+        promo = self._make_promo()
+        with patch.object(
+            db.session, "commit", side_effect=Exception("boom")
+        ), patch.object(db.session, "rollback") as mocked_rb:
+            with self.assertRaises(DataValidationError):
+                promo.create()
+            mocked_rb.assert_called_once()
+
+    def test_update_database_error(self):
+        """update() must rollback and raise DataValidationError on commit failure"""
+        promo = self._make_promo()
+        promo.create()  # normal path first
+        promo.amount = 99.0
+        with patch.object(
+            db.session, "commit", side_effect=Exception("boom")
+        ), patch.object(db.session, "rollback") as mocked_rb:
+            with self.assertRaises(DataValidationError):
+                promo.update()
+            mocked_rb.assert_called_once()
+
+    def test_delete_database_error(self):
+        """delete() must rollback and raise DataValidationError on commit failure"""
+        promo = self._make_promo()
+        promo.create()
+        with patch.object(
+            db.session, "commit", side_effect=Exception("boom")
+        ), patch.object(db.session, "rollback") as mocked_rb:
+            with self.assertRaises(DataValidationError):
+                promo.delete()
+            mocked_rb.assert_called_once()
+
+    # -----------------------------------------------------------------
+    #  deserialize() – error branches
+    # -----------------------------------------------------------------
+    def test_deserialize_missing_key(self):
+        """Missing required field should raise the KeyError-wrapped variant"""
+        bad = {
+            # “name” deliberately omitted
+            "promo_type": "PERCENT_OFF",
+            "product_id": 123,
+            "amount": 5,
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-31",
+        }
+        with self.assertRaises(DataValidationError) as ctx:
+            Promotion().deserialize(bad)
+        self.assertIn("missing name", str(ctx.exception))
+
+    def test_deserialize_bad_or_malformed_data(self):
+        """Wrong field types / bad ISO date ⇒ ValueError/TypeError branch"""
+        bad = {
+            "name": "Bad Data",
+            "promo_type": "PERCENT_OFF",
+            "product_id": "not-int",
+            "amount": "not-float",
+            "start_date": "not-a-date",
+            "end_date": "also-bad",
+        }
+        with self.assertRaises(DataValidationError) as ctx:
+            Promotion().deserialize(bad)
+        self.assertIn("bad or malformed data", str(ctx.exception))
+
+    def test_deserialize_attribute_error(self):
+        """
+        Force an AttributeError while inside the try-block so the
+        “Invalid attribute” branch executes.
+        """
+        good = {
+            "name": "Attr Error",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 999,
+            "amount": 10,
+            "start_date": "2025-03-01",
+            "end_date": "2025-03-31",
+        }
+        promo = Promotion()
+
+        original_setattr = Promotion.__setattr__
+
+        def broken_setattr(self, key, value):
+            if key == "name":
+                raise AttributeError("name")
+            return original_setattr(self, key, value)
+
+        try:
+            Promotion.__setattr__ = broken_setattr
+            with self.assertRaises(DataValidationError) as ctx:
+                promo.deserialize(good)
+            self.assertIn("Invalid attribute", str(ctx.exception))
+        finally:
+            Promotion.__setattr__ = original_setattr

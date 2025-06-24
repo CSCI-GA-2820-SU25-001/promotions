@@ -15,7 +15,7 @@
 ######################################################################
 
 """
-TestYourResourceModel API Service Test Suite
+TestPromotion API Service Test Suite
 """
 
 # pylint: disable=duplicate-code
@@ -198,34 +198,3 @@ class TestYourResourceService(TestCase):
         # second delete – idempotent 204
         resp = self.client.delete(f"/promotions/{pid}")
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
-
-    ######################################################################
-    #  YourResourceModel coverage helpers
-    ######################################################################
-    def test_your_resource_model_lifecycle(self):
-        from service.models import YourResourceModel, DataValidationError
-
-        # create
-        yrm = YourResourceModel(name="widget")
-        yrm.create()
-        self.assertIsNotNone(yrm.id)
-
-        # update
-        yrm.name = "gadget"
-        yrm.update()
-        self.assertEqual(YourResourceModel.find(yrm.id).name, "gadget")
-
-        # serialize / deserialize
-        blob = yrm.serialize()
-        twin = YourResourceModel().deserialize(blob)
-        self.assertEqual(twin.name, "gadget")
-
-        # bad deserialize paths
-        with self.assertRaises(DataValidationError):
-            YourResourceModel().deserialize({"bad": "key"})
-        with self.assertRaises(DataValidationError):
-            YourResourceModel().deserialize("not-a-dict")
-
-        # delete
-        yrm.delete()
-        self.assertIsNone(YourResourceModel.find(yrm.id))
