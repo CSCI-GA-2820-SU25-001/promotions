@@ -19,16 +19,13 @@ Test cases for Pet Model
 """
 
 # pylint: disable=duplicate-code
-import os
 import logging
-from unittest import TestCase
-from wsgi import app
-from service.models import DataValidationError, db
-from .factories import YourResourceModelFactory
+import os
 from datetime import date
+from unittest import TestCase
 from unittest.mock import patch
-
-from service.models import Promotion, PromoType
+from wsgi import app
+from service.models import DataValidationError, PromoType, Promotion, db
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql+psycopg://postgres:postgres@localhost:5432/testdb"

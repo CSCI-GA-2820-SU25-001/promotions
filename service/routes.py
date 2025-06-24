@@ -31,7 +31,10 @@ from service.common import status  # HTTP Status Codes
 ######################################################################
 @app.route("/", methods=["GET"])
 def index():
-    """Root endpoint for the Promotions service"""
+    """Handles the index (root) endpoint response."""
+    if not request.accept_mimetypes.accept_json:
+        return "", status.HTTP_406_NOT_ACCEPTABLE
+
     return (
         jsonify(
             {
@@ -47,8 +50,6 @@ def index():
 ######################################################################
 #  R E S T   A P I   E N D P O I N T S
 ######################################################################
-
-# Todo: Place your REST API code here ...
 
 
 ######################################################################

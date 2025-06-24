@@ -16,5 +16,3 @@ class YourResourceModelFactory(factory.Factory):
 
     id = factory.Sequence(lambda n: n)
     name = factory.Faker("first_name")
-
-    # Todo: Add your other attributes here...

@@ -23,9 +23,9 @@ import os
 import logging
 from unittest import TestCase
 from wsgi import app
-from service import create_app
 from service.common import status
 from service.models import db, Promotion
+from service.common.log_handlers import init_logging
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql+psycopg://postgres:postgres@localhost:5432/testdb"
@@ -70,7 +70,7 @@ class TestYourResourceService(TestCase):
 
     def test_index(self):
         """It should return the service root info"""
-        resp = self.client.get("/")
+        resp = self.client.get("/", headers={"Accept": "application/json"})
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         data = resp.get_json()
         self.assertIsNotNone(data)
@@ -172,12 +172,63 @@ class TestYourResourceService(TestCase):
         return resp.get_json()["id"]
 
     def test_read_promotion(self):
+        """It should retrieve a promotion by ID and return 200 OK."""
         pid = self._create_sample_promo()
         resp = self.client.get(f"/promotions/{pid}")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.get_json()["id"], pid)
 
+    def test_update_with_wrong_content_type(self):
+        """It should return 415 when Content-Type is not application/json."""
+        pid = self._create_sample_promo()
+        update = {
+            "name": "Updated Promo",
+            "promo_type": "AMOUNT_OFF",
+            "product_id": 2,
+            "amount": 9.99,
+            "start_date": "2025-02-01",
+            "end_date": "2025-02-28",
+        }
+        response = self.client.put(
+            f"/promotions/{pid}",
+            data=str(update),
+            headers={"Content-Type": "text/plain"},
+        )
+        self.assertEqual(response.status_code, 415)
+
+    def test_update_with_mismatched_id(self):
+        """It should return 400 when IDs in URL and body don't match."""
+        pid = self._create_sample_promo()
+        update = {
+            "id": pid + 1000,  # Force mismatch
+            "name": "Mismatch Promo",
+            "promo_type": "AMOUNT_OFF",
+            "product_id": 2,
+            "amount": 9.99,
+            "start_date": "2025-02-01",
+            "end_date": "2025-02-28",
+        }
+        response = self.client.put(f"/promotions/{pid}", json=update)
+        self.assertEqual(response.status_code, 400)
+
+    def test_update_returns_updated_promotion(self):
+        """It should return the updated promotion successfully."""
+        pid = self._create_sample_promo()
+        update = {
+            "name": "FinalCheck",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 123,
+            "amount": 30.0,
+            "start_date": "2025-07-01",
+            "end_date": "2025-07-31",
+        }
+        response = self.client.put(f"/promotions/{pid}", json=update)
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data["name"], "FinalCheck")
+
     def test_update_promotion(self):
+        """It should update an existing promotion and return the updated data."""
         pid = self._create_sample_promo()
         update = {
             "name": "Updated",
@@ -192,9 +243,51 @@ class TestYourResourceService(TestCase):
         self.assertEqual(resp.get_json()["amount"], update["amount"])
 
     def test_delete_promotion(self):
+        """It should delete a promotion successfully."""
         pid = self._create_sample_promo()
         resp = self.client.delete(f"/promotions/{pid}")
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         # second delete – idempotent 204
         resp = self.client.delete(f"/promotions/{pid}")
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_update_nonexistent_promotion(self):
+        """It should return 404 when updating a non-existent promotion."""
+        update_data = {
+            "name": "Invalid Promo",
+            "product_id": 999,
+            "promo_type": "bogo",
+            "amount": 5,
+            "start_date": "2023-01-01",
+            "end_date": "2023-12-31",
+        }
+        response = self.client.put(
+            "/promotions/999", json=update_data, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_get_nonexistent_promotion(self):
+        """It should return 404 when getting a non-existent promotion."""
+        response = self.client.get("/promotions/999")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_method_not_allowed(self):
+        """It should return 405 METHOD NOT ALLOWED for invalid methods."""
+        resp = self.client.put("/")  # Root doesn't allow PUT
+        self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_not_acceptable(self):
+        """It should return 406 NOT ACCEPTABLE for unsupported Accept headers."""
+        resp = self.client.get("/", headers={"Accept": "application/xml"})
+        self.assertEqual(resp.status_code, status.HTTP_406_NOT_ACCEPTABLE)
+
+    def test_unsupported_media_type(self):
+        """It should return 415 UNSUPPORTED MEDIA TYPE for invalid Content-Type."""
+        resp = self.client.post(
+            "/promotions", data="{}", headers={"Content-Type": "text/xml"}
+        )
+        self.assertEqual(resp.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+
+    def test_logging_handler_setup(self):
+        """It should initialize the logging handler properly."""
+        init_logging(app, "gunicorn.error")
