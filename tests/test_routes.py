@@ -78,7 +78,6 @@ class TestYourResourceService(TestCase):
         self.assertEqual(data["version"], "1.0")
         self.assertEqual(data["list_endpoint"], "/promotions")
 
-
     def test_create_promotion(self):
         """It should Create a new Promotion"""
         test_promotion = {
@@ -87,7 +86,7 @@ class TestYourResourceService(TestCase):
             "product_id": 123,
             "amount": 25.0,
             "start_date": "2025-06-01",
-            "end_date": "2025-06-30"
+            "end_date": "2025-06-30",
         }
 
         response = self.client.post("/promotions", json=test_promotion)
@@ -96,7 +95,8 @@ class TestYourResourceService(TestCase):
         # Check Location header
         location = response.headers.get("Location", None)
         self.assertIsNotNone(location)
-        self.assertEqual(location, "unknown")  
+        print(location)
+        self.assertRegex(location, r"/promotions/\d+$")
 
         # Validate returned promotion
         data = response.get_json()
@@ -116,7 +116,7 @@ class TestYourResourceService(TestCase):
             "product_id": 101,
             "amount": 10.0,
             "start_date": "2025-06-01",
-            "end_date": "2025-06-15"
+            "end_date": "2025-06-15",
         }
 
         promo_2 = {
@@ -125,7 +125,7 @@ class TestYourResourceService(TestCase):
             "product_id": 102,
             "amount": 1.0,
             "start_date": "2025-06-05",
-            "end_date": "2025-06-20"
+            "end_date": "2025-06-20",
         }
 
         self.client.post("/promotions", json=promo_1)
@@ -138,7 +138,8 @@ class TestYourResourceService(TestCase):
         data = response.get_json()
         self.assertIsInstance(data, list)
         self.assertEqual(len(data), 2)
-    #test to trigger check_content_type error to make the coverage above 95%
+
+    # test to trigger check_content_type error to make the coverage above 95%
     def test_create_promotion_with_wrong_content_type(self):
         """It should return 415 UNSUPPORTED MEDIA TYPE if Content-Type is wrong"""
         test_data = {
@@ -147,8 +148,84 @@ class TestYourResourceService(TestCase):
             "product_id": 101,
             "amount": 20.0,
             "start_date": "2025-06-01",
-            "end_date": "2025-06-30"
+            "end_date": "2025-06-30",
         }
 
-        response = self.client.post("/promotions", data=str(test_data), headers={"Content-Type": "text/plain"})
+        response = self.client.post(
+            "/promotions", data=str(test_data), headers={"Content-Type": "text/plain"}
+        )
         self.assertEqual(response.status_code, 415)
+
+    ######################################################################
+    #  R / U / D route tests (new)
+    ######################################################################
+    def _create_sample_promo(self):
+        payload = {
+            "name": "Sample",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 1,
+            "amount": 5.0,
+            "start_date": "2025-01-01",
+            "end_date": "2025-12-31",
+        }
+        resp = self.client.post("/promotions", json=payload)
+        return resp.get_json()["id"]
+
+    def test_read_promotion(self):
+        pid = self._create_sample_promo()
+        resp = self.client.get(f"/promotions/{pid}")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.get_json()["id"], pid)
+
+    def test_update_promotion(self):
+        pid = self._create_sample_promo()
+        update = {
+            "name": "Updated",
+            "promo_type": "AMOUNT_OFF",
+            "product_id": 2,
+            "amount": 9.99,
+            "start_date": "2025-02-01",
+            "end_date": "2025-02-28",
+        }
+        resp = self.client.put(f"/promotions/{pid}", json=update)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.get_json()["amount"], update["amount"])
+
+    def test_delete_promotion(self):
+        pid = self._create_sample_promo()
+        resp = self.client.delete(f"/promotions/{pid}")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        # second delete – idempotent 204
+        resp = self.client.delete(f"/promotions/{pid}")
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+    ######################################################################
+    #  YourResourceModel coverage helpers
+    ######################################################################
+    def test_your_resource_model_lifecycle(self):
+        from service.models import YourResourceModel, DataValidationError
+
+        # create
+        yrm = YourResourceModel(name="widget")
+        yrm.create()
+        self.assertIsNotNone(yrm.id)
+
+        # update
+        yrm.name = "gadget"
+        yrm.update()
+        self.assertEqual(YourResourceModel.find(yrm.id).name, "gadget")
+
+        # serialize / deserialize
+        blob = yrm.serialize()
+        twin = YourResourceModel().deserialize(blob)
+        self.assertEqual(twin.name, "gadget")
+
+        # bad deserialize paths
+        with self.assertRaises(DataValidationError):
+            YourResourceModel().deserialize({"bad": "key"})
+        with self.assertRaises(DataValidationError):
+            YourResourceModel().deserialize("not-a-dict")
+
+        # delete
+        yrm.delete()
+        self.assertIsNone(YourResourceModel.find(yrm.id))
