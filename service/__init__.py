@@ -22,6 +22,7 @@ import sys
 from flask import Flask
 from service import config
 from service.common import log_handlers
+from service import routes, models
 
 
 ############################################################
@@ -36,13 +37,17 @@ def create_app():
     # Initialize Plugins
     # pylint: disable=import-outside-toplevel
     from service.models import db
+
     db.init_app(app)
 
     with app.app_context():
         # Dependencies require we import the routes AFTER the Flask app is created
         # pylint: disable=wrong-import-position, wrong-import-order, unused-import
-        from service import routes, models  # noqa: F401 E402
+        # noqa: F401 E402
         from service.common import error_handlers, cli_commands  # noqa: F401, E402
+        from service.routes import webapp
+
+        app.register_blueprint(webapp)
 
         try:
             db.create_all()
