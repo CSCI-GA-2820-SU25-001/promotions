@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: promotions
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: promotions
+  template:
+    metadata:
+      labels:
+        app: promotions
+    spec:
+      containers:
+        - name: promotions
+          image: cluster-registry:5000/petshop:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DATABASE_URI
+              value: postgresql://postgres:postgres@postgres:5432/promotions
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
