@@ -20,18 +20,16 @@ This service implements a REST API that allows you to Create, Read, Update
 and Delete YourResourceModel
 """
 
-from flask import Blueprint, jsonify, request, url_for, abort
+from flask import jsonify, request, url_for, abort
+from flask import current_app as app  # Import Flask application
 from service.models import Promotion
-from service.common import status
-from flask import current_app
-
-webapp = Blueprint("webapp", __name__)
+from service.common import status  # HTTP Status Codes
 
 
 ######################################################################
 # GET INDEX
 ######################################################################
-@webapp.route("/", methods=["GET"])
+@app.route("/", methods=["GET"])
 def index():
     """Handles the index (root) endpoint response."""
     if not request.accept_mimetypes.accept_json:
@@ -57,21 +55,21 @@ def index():
 ######################################################################
 # CREATE A NEW PROMOTION
 ######################################################################
-@webapp.route("/promotions", methods=["POST"])
+@app.route("/promotions", methods=["POST"])
 def create_promotions():
     """
     Create a Promotion
     """
-    current_app.logger.info("Request to create a Promotion...")
+    app.logger.info("Request to create a Promotion...")
     check_content_type("application/json")
 
     promotion = Promotion()
     # get data from the request and deserialization
     data = request.get_json()
-    current_app.logger.debug("processing = %s", data)
+    app.logger.debug("processing = %s", data)
     promotion.deserialize(data)
     promotion.create()
-    current_app.logger.info("promotion with new id [%s] saved!", promotion.id)
+    app.logger.info("promotion with new id [%s] saved!", promotion.id)
     # umcomment when list all promotion and can read by id is done
     location_url = url_for("get_promotion", promotion_id=promotion.id, _external=True)
     return (
@@ -84,10 +82,10 @@ def create_promotions():
 ######################################################################
 # LIST ALL PROMOTION
 ######################################################################
-@webapp.route("/promotions", methods=["GET"])
+@app.route("/promotions", methods=["GET"])
 def list_promotions():
     """Returns all of the promotions"""
-    current_app.logger.info("Request to list all promotions")
+    app.logger.info("Request to list all promotions")
 
     promotions = Promotion.all()
     results = [p.serialize() for p in promotions]
@@ -102,7 +100,7 @@ def check_content_type(expected_type):
     """Checks that the Content-Type is as expected"""
     content_type = request.headers.get("Content-Type")
     if content_type != expected_type:
-        current_app.logger.error("Invalid Content-Type: %s", content_type)
+        app.logger.error("Invalid Content-Type: %s", content_type)
         abort(
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             f"Content-Type must be {expected_type}",
@@ -112,10 +110,10 @@ def check_content_type(expected_type):
 ######################################################################
 # READ A PROMOTION BY ID
 ######################################################################
-@webapp.route("/promotions/<int:promotion_id>", methods=["GET"])
+@app.route("/promotions/<int:promotion_id>", methods=["GET"])
 def get_promotion(promotion_id):
     """Return a single Promotion by its ID"""
-    current_app.logger.info("Request for Promotion with id: %s", promotion_id)
+    app.logger.info("Request for Promotion with id: %s", promotion_id)
     promotion = Promotion.find(promotion_id)
     if not promotion:
         abort(
@@ -128,10 +126,10 @@ def get_promotion(promotion_id):
 ######################################################################
 # UPDATE A PROMOTION
 ######################################################################
-@webapp.route("/promotions/<int:promotion_id>", methods=["PUT"])
+@app.route("/promotions/<int:promotion_id>", methods=["PUT"])
 def update_promotion(promotion_id):
     """Update an existing Promotion"""
-    current_app.logger.info("Request to update Promotion with id: %s", promotion_id)
+    app.logger.info("Request to update Promotion with id: %s", promotion_id)
     check_content_type("application/json")
 
     promotion = Promotion.find(promotion_id)
@@ -159,10 +157,10 @@ def update_promotion(promotion_id):
 ######################################################################
 # DELETE A PROMOTION
 ######################################################################
-@webapp.route("/promotions/<int:promotion_id>", methods=["DELETE"])
+@app.route("/promotions/<int:promotion_id>", methods=["DELETE"])
 def delete_promotion(promotion_id):
     """Delete a Promotion by its ID"""
-    current_app.logger.info("Request to delete Promotion with id: %s", promotion_id)
+    app.logger.info("Request to delete Promotion with id: %s", promotion_id)
     promotion = Promotion.find(promotion_id)
 
     # RFC-conformant: DELETE is idempotent—return 204 even if nothing to delete
@@ -170,12 +168,3 @@ def delete_promotion(promotion_id):
         promotion.delete()
 
     return "", status.HTTP_204_NO_CONTENT
-
-
-######################################################################
-# Health Check
-######################################################################
-@webapp.route("/health")
-def health_check():
-    """Health check route for Kubernetes"""
-    return jsonify({"status": "OK"}), 200
