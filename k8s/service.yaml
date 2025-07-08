@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: promotions
+spec:
+  selector:
+    app: promotions
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
