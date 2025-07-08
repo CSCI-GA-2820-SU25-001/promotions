@@ -87,9 +87,9 @@ build:	## Build the project container image for local platform
 	docker build --rm --pull --tag $(IMAGE) .
 
 .PHONY: push
-push: ## Import the image into the local K3S cluster
-	$(info Importing $(IMAGE) into $(CLUSTER)...)
-	k3d image import $(IMAGE) -c $(CLUSTER)
+push:	## Push the image to the container registry
+	$(info Pushing $(IMAGE)...)
+	docker push $(IMAGE)
 
 .PHONY: buildx
 buildx:	## Build multi-platform image with buildx
