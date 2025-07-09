@@ -71,12 +71,14 @@ class TestPromotionModel(TestCase):
             amount=10.0,
             start_date=date(2025, 6, 1),
             end_date=date(2025, 6, 30),
+            status=True,
         )
         promo.create()
         self.assertIsNotNone(promo.id)
         results = Promotion.all()
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].name, "Summer Sale")
+        self.assertTrue(results[0].status)
 
     def test_update_a_promotion(self):
         """It should update a Promotion"""
@@ -87,12 +89,15 @@ class TestPromotionModel(TestCase):
             amount=5.0,
             start_date=date(2025, 12, 1),
             end_date=date(2025, 12, 31),
+            status=True,
         )
         promo.create()
         promo.amount = 8.0
+        promo.status = False
         promo.update()
         updated = Promotion.find(promo.id)
         self.assertEqual(updated.amount, 8.0)
+        self.assertFalse(updated.status)
 
     def test_delete_a_promotion(self):
         """It should delete a Promotion"""
@@ -118,10 +123,12 @@ class TestPromotionModel(TestCase):
             amount=25.0,
             start_date=date(2025, 11, 25),
             end_date=date(2025, 12, 1),
+            status=False,
         )
         result = promo.serialize()
         self.assertEqual(result["name"], "Cyber Week")
         self.assertEqual(result["promo_type"], "PERCENT_OFF")
+        self.assertFalse(result["status"])
 
     def test_deserialize_a_promotion(self):
         """It should deserialize a dictionary into a Promotion"""
@@ -132,11 +139,13 @@ class TestPromotionModel(TestCase):
             "amount": 7.0,
             "start_date": "2025-08-01",
             "end_date": "2025-08-15",
+            "status": False,
         }
         promo = Promotion()
         promo.deserialize(data)
         self.assertEqual(promo.name, "Back to School")
         self.assertEqual(promo.promo_type, "AMOUNT_OFF")
+        self.assertFalse(promo.status)
 
     def test_find_by_name(self):
         """It should find promotions by name"""
@@ -147,11 +156,13 @@ class TestPromotionModel(TestCase):
             amount=12.0,
             start_date=date(2025, 9, 1),
             end_date=date(2025, 9, 30),
+            status=True,
         )
         promo.create()
         results = Promotion.find_by_name("Mega Discount")
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].product_id, 1006)
+        self.assertTrue(results[0].status)
 
     def test_deserialize_with_bad_data(self):
         """It should raise a DataValidationError for bad promo_type"""
@@ -175,6 +186,7 @@ class TestPromotionModel(TestCase):
             amount=1.0,
             start_date=date(2025, 2, 1),
             end_date=date(2025, 2, 2),
+            status=True,
         )
 
     # -----------------------------------------------------------------
@@ -228,12 +240,12 @@ class TestPromotionModel(TestCase):
     def test_deserialize_missing_key(self):
         """Missing required field should raise the KeyError-wrapped variant"""
         bad = {
-            # “name” deliberately omitted
             "promo_type": "PERCENT_OFF",
             "product_id": 123,
             "amount": 5,
             "start_date": "2025-01-01",
             "end_date": "2025-01-31",
+            "status": True,
         }
         with self.assertRaises(DataValidationError) as ctx:
             Promotion().deserialize(bad)
@@ -248,16 +260,14 @@ class TestPromotionModel(TestCase):
             "amount": "not-float",
             "start_date": "not-a-date",
             "end_date": "also-bad",
+            "status": "not-a-bool",
         }
         with self.assertRaises(DataValidationError) as ctx:
             Promotion().deserialize(bad)
         self.assertIn("bad or malformed data", str(ctx.exception))
 
     def test_deserialize_attribute_error(self):
-        """
-        Force an AttributeError while inside the try-block so the
-        “Invalid attribute” branch executes.
-        """
+        """Force an AttributeError while inside the try-block so the “Invalid attribute” branch executes."""
         good = {
             "name": "Attr Error",
             "promo_type": "PERCENT_OFF",
@@ -265,6 +275,7 @@ class TestPromotionModel(TestCase):
             "amount": 10,
             "start_date": "2025-03-01",
             "end_date": "2025-03-31",
+            "status": True,
         }
         promo = Promotion()
 

@@ -28,10 +28,8 @@ class PromoType(Enum):
     AMOUNT_OFF = "AMOUNT_OFF"
 
 
-class Promotion(db.Model):
-    """
-    Class that represents a Promotion
-    """
+class Promotion(db.Model):  # pylint: disable=too-many-instance-attributes
+    """Class that represents a Promotion"""
 
     ##################################################
     # Table Schema
@@ -43,6 +41,8 @@ class Promotion(db.Model):
     amount = db.Column(db.Float, nullable=False)
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=False)
+    status = db.Column(db.Boolean, nullable=False, default=True)
+
     # probably need to add how much off, etc field here or incorporate it into promo_type
 
     def __repr__(self):
@@ -91,6 +91,7 @@ class Promotion(db.Model):
             "amount": self.amount,
             "start_date": self.start_date.isoformat(),
             "end_date": self.end_date.isoformat(),
+            "status": self.status,
         }
 
     def deserialize(self, data):
@@ -110,6 +111,7 @@ class Promotion(db.Model):
             self.amount = float(data["amount"])
             self.start_date = date.fromisoformat(data["start_date"])
             self.end_date = date.fromisoformat(data["end_date"])
+            self.status = bool(data.get("status", True))
         except AttributeError as error:
             raise DataValidationError("Invalid attribute: " + error.args[0]) from error
         except KeyError as error:
