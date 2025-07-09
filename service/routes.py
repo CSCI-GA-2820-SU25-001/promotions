@@ -186,7 +186,7 @@ def delete_promotion(promotion_id):
     return "", status.HTTP_204_NO_CONTENT
 
 
-######################################################################
+#####################################################################
 # ACTIVATE A PROMOTION
 ######################################################################
 @app.route("/promotions/<int:promotion_id>/activate", methods=["PUT"])
@@ -226,3 +226,12 @@ def deactivate_promotion(promotion_id):
     promotion.status = False
     promotion.update()
     return jsonify(promotion.serialize()), status.HTTP_200_OK
+
+
+######################################################################
+# HEALTH CHECK
+######################################################################
+@app.route("/promotions/health", methods=["GET"])
+def health_check():
+    """Health check endpoint"""
+    return jsonify(status="OK"), status.HTTP_200_OK
