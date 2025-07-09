@@ -185,6 +185,7 @@ def delete_promotion(promotion_id):
 
     return "", status.HTTP_204_NO_CONTENT
 
+
 #####################################################################
 # ACTIVATE A PROMOTION
 ######################################################################
@@ -225,6 +226,7 @@ def deactivate_promotion(promotion_id):
     promotion.status = False
     promotion.update()
     return jsonify(promotion.serialize()), status.HTTP_200_OK
+
 
 ######################################################################
 # HEALTH CHECK
