@@ -271,6 +271,43 @@ class TestYourResourceService(TestCase):
         response = self.client.get("/promotions/999")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_list_promotions_with_id_query(self):
+        """It should return a specific promotion when queried by ID"""
+        # First create a promotion
+        promo = {
+            "name": "Targeted Promo",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 200,
+            "amount": 20.0,
+            "start_date": "2025-06-01",
+            "end_date": "2025-06-30",
+        }
+
+        create_resp = self.client.post("/promotions", json=promo)
+        self.assertEqual(create_resp.status_code, status.HTTP_201_CREATED)
+        created_data = create_resp.get_json()
+        created_id = created_data["id"]
+
+        # Now test query by id
+        query_resp = self.client.get(f"/promotions?id={created_id}")
+        self.assertEqual(query_resp.status_code, status.HTTP_200_OK)
+
+        data = query_resp.get_json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["id"], created_id)
+        self.assertEqual(data[0]["name"], "Targeted Promo")
+
+    def test_list_promotions_with_invalid_id(self):
+        """It should return 400 for non-integer id query"""
+        resp = self.client.get("/promotions?id=abc")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_list_promotions_with_nonexistent_id(self):
+        """It should return 404 when queried with a non-existent id"""
+        resp = self.client.get("/promotions?id=9999")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_method_not_allowed(self):
         """It should return 405 METHOD NOT ALLOWED for invalid methods."""
         resp = self.client.put("/")  # Root doesn't allow PUT
