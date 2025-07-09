@@ -1,3 +1,4 @@
+[![codecov](https://codecov.io/gh/CSCI-GA-2820-SU25-001/promotions/graph/badge.svg?token=A2FO1SPNW5)](https://codecov.io/gh/CSCI-GA-2820-SU25-001/promotions)
 # Promotions REST API
 This is a RESTful microservice for managing promotions as part of an eCommerce backend. It allows you to create, read, update, delete, and list product promotions such as percentage discounts, amount off, and BOGO (Buy One Get One) offers.
 ---
