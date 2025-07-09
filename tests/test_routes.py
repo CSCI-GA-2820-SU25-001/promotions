@@ -305,18 +305,18 @@ class TestYourResourceService(TestCase):
         self.assertEqual(data[0]["name"], "Targeted Promo")
         self.assertTrue(data[0]["status"])  # Added
 
-    def test_activate_promotion(self):
-        """It should activate a promotion and set status=True"""
+    def test_activate_promotion_put(self):
+        """It should activate a promotion using PUT and return 200 OK"""
         pid = self._create_sample_promo()
 
-        # Deactivate first to ensure it starts with status=False
+        # Set to inactive first
         self.client.delete(f"/promotions/{pid}/deactivate")
 
-        # Activate
-        resp = self.client.get(f"/promotions/{pid}/activate")
+        # Now activate using PUT
+        resp = self.client.put(f"/promotions/{pid}/activate")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-
         data = resp.get_json()
+        self.assertEqual(data["message"], f"Promotion {pid} activated")
         self.assertTrue(data["status"])
 
     def test_deactivate_promotion(self):
