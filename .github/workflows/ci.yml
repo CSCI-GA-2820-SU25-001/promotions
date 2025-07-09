@@ -46,7 +46,7 @@ jobs:
         DATABASE_URI: postgresql+psycopg://postgres:pgs3cr3t@postgres:5432/Promotions
     
     - name: Install dependencies for Codecov to work
-      run: apt-get update && apt-get install -y git curl gpg
+      run: pip install pytest pytest-cov
     
     - name: Upload Coverage Reports to Codecov
       uses: codecov/codecov-action@v5
