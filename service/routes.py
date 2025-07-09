@@ -168,3 +168,12 @@ def delete_promotion(promotion_id):
         promotion.delete()
 
     return "", status.HTTP_204_NO_CONTENT
+
+
+######################################################################
+# HEALTH CHECK
+######################################################################
+@app.route("/promotions/health", methods=["GET"])
+def health_check():
+    """Health check endpoint"""
+    return jsonify(status="OK"), status.HTTP_200_OK
