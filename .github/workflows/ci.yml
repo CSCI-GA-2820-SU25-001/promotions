@@ -41,7 +41,7 @@ jobs:
         pylint service tests --max-line-length=127
 
     - name: Run Unit Tests
-      run: pytest --pspec --cov=service --cov-fail-under=95 --cov-report=xml
+      run: pytest tests --cov=service --cov-fail-under=95 --cov-report=xml
       env:
         DATABASE_URI: postgresql+psycopg://postgres:pgs3cr3t@postgres:5432/Promotions
     
