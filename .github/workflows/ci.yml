@@ -3,20 +3,13 @@ name: Promotions Microservice CI
 on:
   push:
     branches: [ "master" ]
-    paths-ignore:
-    - 'README.md'
-    - '.vscode/**'
-
   pull_request:
     branches: [ "master" ]
-    paths-ignore:
-    - 'README.md'
-    - '.vscode/**'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: python:3.11
+    container: python:3.11-slim
 
     services:
       postgres:
@@ -50,14 +43,10 @@ jobs:
     - name: Run Unit Tests
       run: pytest tests --cov=service --cov-fail-under=95 --cov-report=xml
       env:
-        FLASK_APP: "wsgi:app"
         DATABASE_URI: postgresql+psycopg://postgres:pgs3cr3t@postgres:5432/Promotions
-    
-    #- name: Install system tools (if needed for Codecov)
-    #  run: apt-get update && apt-get install -y git curl gpg
-    
+
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@5
+      uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: CSCI-GA-2820-SU25-001/promotions
