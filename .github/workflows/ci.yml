@@ -46,7 +46,10 @@ jobs:
         DATABASE_URI: postgresql+psycopg://postgres:pgs3cr3t@postgres:5432/Promotions
     
     - name: Install system tools (if needed for Codecov)
-      run: apt-get update && apt-get install -y git
+      run: apt update && apt install -y git curl gpg
     
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v3.1.4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: CSCI-GA-2820-SU25-001/promotions
