@@ -184,3 +184,41 @@ def delete_promotion(promotion_id):
         promotion.delete()
 
     return "", status.HTTP_204_NO_CONTENT
+
+
+######################################################################
+# ACTIVATE A PROMOTION
+######################################################################
+@app.route("/promotions/<int:promotion_id>/activate", methods=["GET"])
+def activate_promotion(promotion_id):
+    """Activate a Promotion by setting status=True"""
+    app.logger.info("Request to activate Promotion with id: %s", promotion_id)
+    promotion = Promotion.find(promotion_id)
+    if not promotion:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Promotion with id '{promotion_id}' was not found.",
+        )
+
+    promotion.status = True
+    promotion.update()
+    return jsonify(promotion.serialize()), status.HTTP_200_OK
+
+
+######################################################################
+# DEACTIVATE A PROMOTION
+######################################################################
+@app.route("/promotions/<int:promotion_id>/deactivate", methods=["DELETE"])
+def deactivate_promotion(promotion_id):
+    """Deactivate a Promotion by setting status=False"""
+    app.logger.info("Request to deactivate Promotion with id: %s", promotion_id)
+    promotion = Promotion.find(promotion_id)
+    if not promotion:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Promotion with id '{promotion_id}' was not found.",
+        )
+
+    promotion.status = False
+    promotion.update()
+    return jsonify(promotion.serialize()), status.HTTP_200_OK
