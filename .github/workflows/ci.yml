@@ -41,9 +41,13 @@ jobs:
         pylint service tests --max-line-length=127
 
     - name: Run Unit Tests
-      run: pytest tests --cov=service --cov-fail-under=95 --cov-report=xml
+      run: pytest --pspec --cov=service --cov-fail-under=95 --cov-report=xml
       env:
+        FLASK_APP: "wsgi:app"
         DATABASE_URI: postgresql+psycopg://postgres:pgs3cr3t@postgres:5432/Promotions
+
+    - name: Install packages for Codecov to work
+      run: apt-get update && apt-get install -y git curl gpg
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
