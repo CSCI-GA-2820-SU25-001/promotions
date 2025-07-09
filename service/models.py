@@ -28,10 +28,8 @@ class PromoType(Enum):
     AMOUNT_OFF = "AMOUNT_OFF"
 
 
-class Promotion(db.Model):
-    """
-    Class that represents a Promotion
-    """
+class Promotion(db.Model):  # pylint: disable=too-many-instance-attributes
+    """Class that represents a Promotion"""
 
     ##################################################
     # Table Schema
