@@ -84,12 +84,28 @@ def create_promotions():
 ######################################################################
 @app.route("/promotions", methods=["GET"])
 def list_promotions():
-    """Returns all of the promotions"""
-    app.logger.info("Request to list all promotions")
+    """Returns all of the promotions or filters by query parameters"""
+    app.logger.info("Request to list promotions")
 
+    promotion_id = request.args.get("id")
+
+    if promotion_id:
+        app.logger.info("Filtering promotions by id=%s", promotion_id)
+        try:
+            promotion = Promotion.find(int(promotion_id))
+        except ValueError:
+            abort(status.HTTP_400_BAD_REQUEST, "ID must be an integer.")
+
+        if not promotion:
+            abort(
+                status.HTTP_404_NOT_FOUND,
+                f"Promotion with id '{promotion_id}' was not found.",
+            )
+        return jsonify([promotion.serialize()]), status.HTTP_200_OK
+
+    # If no filter, return all
     promotions = Promotion.all()
     results = [p.serialize() for p in promotions]
-
     return jsonify(results), status.HTTP_200_OK
 
 
@@ -169,6 +185,46 @@ def delete_promotion(promotion_id):
 
     return "", status.HTTP_204_NO_CONTENT
 
+#####################################################################
+# ACTIVATE A PROMOTION
+######################################################################
+@app.route("/promotions/<int:promotion_id>/activate", methods=["PUT"])
+def activate_promotion(promotion_id):
+    """Activate a Promotion by setting status=True"""
+    app.logger.info("Request to activate Promotion with id: %s", promotion_id)
+    promotion = Promotion.find(promotion_id)
+
+    if not promotion:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Promotion with id '{promotion_id}' was not found.",
+        )
+
+    promotion.status = True
+    promotion.update()
+    return (
+        jsonify(message=f"Promotion {promotion_id} activated", status=promotion.status),
+        status.HTTP_200_OK,
+    )
+
+
+######################################################################
+# DEACTIVATE A PROMOTION (Soft Delete)
+######################################################################
+@app.route("/promotions/<int:promotion_id>/deactivate", methods=["DELETE"])
+def deactivate_promotion(promotion_id):
+    """Deactivate a Promotion by setting status=False"""
+    app.logger.info("Request to deactivate Promotion with id: %s", promotion_id)
+    promotion = Promotion.find(promotion_id)
+    if not promotion:
+        abort(
+            status.HTTP_404_NOT_FOUND,
+            f"Promotion with id '{promotion_id}' was not found.",
+        )
+
+    promotion.status = False
+    promotion.update()
+    return jsonify(promotion.serialize()), status.HTTP_200_OK
 
 ######################################################################
 # HEALTH CHECK

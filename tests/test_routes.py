@@ -82,7 +82,7 @@ class TestYourResourceService(TestCase):
         """It should Create a new Promotion"""
         test_promotion = {
             "name": "Flash Sale",
-            "promo_type": "PERCENT_OFF",  # valid enum
+            "promo_type": "PERCENT_OFF",
             "product_id": 123,
             "amount": 25.0,
             "start_date": "2025-06-01",
@@ -90,15 +90,14 @@ class TestYourResourceService(TestCase):
         }
 
         response = self.client.post("/promotions", json=test_promotion)
+        print(response)
+        print(response.data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        # Check Location header
         location = response.headers.get("Location", None)
         self.assertIsNotNone(location)
-        print(location)
         self.assertRegex(location, r"/promotions/\d+$")
 
-        # Validate returned promotion
         data = response.get_json()
         self.assertEqual(data["name"], test_promotion["name"])
         self.assertEqual(data["promo_type"], test_promotion["promo_type"])
@@ -106,6 +105,7 @@ class TestYourResourceService(TestCase):
         self.assertEqual(data["amount"], test_promotion["amount"])
         self.assertEqual(data["start_date"], test_promotion["start_date"])
         self.assertEqual(data["end_date"], test_promotion["end_date"])
+        self.assertTrue(data["status"])  # Added status assertion
 
     def test_list_all_promotions(self):
         """It should return a list of all Promotions"""
@@ -138,6 +138,9 @@ class TestYourResourceService(TestCase):
         data = response.get_json()
         self.assertIsInstance(data, list)
         self.assertEqual(len(data), 2)
+
+        self.assertTrue(data[0]["status"])
+        self.assertTrue(data[1]["status"])
 
     # test to trigger check_content_type error to make the coverage above 95%
     def test_create_promotion_with_wrong_content_type(self):
@@ -176,7 +179,9 @@ class TestYourResourceService(TestCase):
         pid = self._create_sample_promo()
         resp = self.client.get(f"/promotions/{pid}")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.get_json()["id"], pid)
+        data = resp.get_json()
+        self.assertEqual(data["id"], pid)
+        self.assertTrue(data["status"])  # Added
 
     def test_update_with_wrong_content_type(self):
         """It should return 415 when Content-Type is not application/json."""
@@ -226,6 +231,7 @@ class TestYourResourceService(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         self.assertEqual(data["name"], "FinalCheck")
+        self.assertTrue(data["status"])  # Added
 
     def test_update_promotion(self):
         """It should update an existing promotion and return the updated data."""
@@ -240,7 +246,9 @@ class TestYourResourceService(TestCase):
         }
         resp = self.client.put(f"/promotions/{pid}", json=update)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.get_json()["amount"], update["amount"])
+        data = resp.get_json()
+        self.assertEqual(data["amount"], update["amount"])
+        self.assertTrue(data["status"])  # Added
 
     def test_delete_promotion(self):
         """It should delete a promotion successfully."""
@@ -270,6 +278,67 @@ class TestYourResourceService(TestCase):
         """It should return 404 when getting a non-existent promotion."""
         response = self.client.get("/promotions/999")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_list_promotions_with_id_query(self):
+        """It should return a specific promotion when queried by ID"""
+        promo = {
+            "name": "Targeted Promo",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 200,
+            "amount": 20.0,
+            "start_date": "2025-06-01",
+            "end_date": "2025-06-30",
+        }
+
+        create_resp = self.client.post("/promotions", json=promo)
+        self.assertEqual(create_resp.status_code, status.HTTP_201_CREATED)
+        created_data = create_resp.get_json()
+        created_id = created_data["id"]
+
+        query_resp = self.client.get(f"/promotions?id={created_id}")
+        self.assertEqual(query_resp.status_code, status.HTTP_200_OK)
+
+        data = query_resp.get_json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["id"], created_id)
+        self.assertEqual(data[0]["name"], "Targeted Promo")
+        self.assertTrue(data[0]["status"])  # Added
+
+    def test_activate_promotion_put(self):
+        """It should activate a promotion using PUT and return 200 OK"""
+        pid = self._create_sample_promo()
+
+        # Set to inactive first
+        self.client.delete(f"/promotions/{pid}/deactivate")
+
+        # Now activate using PUT
+        resp = self.client.put(f"/promotions/{pid}/activate")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertEqual(data["message"], f"Promotion {pid} activated")
+        self.assertTrue(data["status"])
+
+    def test_deactivate_promotion(self):
+        """It should deactivate a promotion and set status=False"""
+        pid = self._create_sample_promo()
+
+        # Deactivate
+        resp = self.client.delete(f"/promotions/{pid}/deactivate")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        data = resp.get_json()
+        self.assertFalse(data["status"])
+
+    def test_list_promotions_with_invalid_id(self):
+        """It should return 400 for non-integer id query"""
+        resp = self.client.get("/promotions?id=abc")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_list_promotions_with_nonexistent_id(self):
+        """It should return 404 when queried with a non-existent id"""
+        resp = self.client.get("/promotions?id=9999")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_method_not_allowed(self):
         """It should return 405 METHOD NOT ALLOWED for invalid methods."""
