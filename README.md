@@ -90,4 +90,4 @@ http DELETE :8080/promotions/1
 ---
 ## :chart_with_upwards_trend: Code Coverage
 - All model and route code is tested with PyUnit
-- 95%+ test coverage achieved via test_models.py and test_routes.py
+- 95%+ test coverage achieved via test_models.py and test_routes.pypwd
