@@ -22,7 +22,7 @@ and Delete Promotions using Flask-RESTX
 import os
 from flask import request
 from flask import current_app as app  # Import Flask application
-from flask import send_from_directory
+from flask import send_from_directory, abort
 from flask_restx import Resource, fields, Namespace
 from service.models import Promotion
 from service.common import status  # HTTP Status Codes
@@ -96,6 +96,10 @@ def check_content_type(expected_type):
             f"Content-Type must be {expected_type}",
         )
 
+@app.before_request
+def check_accept_header():
+    if not request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+        abort(status.HTTP_406_NOT_ACCEPTABLE, description="Not Acceptable: Only 'application/json' or 'text/html' is supported.")
 
 ######################################################################
 # ROOT ENDPOINT (Serve index.html)
