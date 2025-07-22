@@ -222,7 +222,7 @@ class PromotionResource(Resource):
 
         data = request.get_json()
         # If the body contains an id, make sure it matches the path
-        if "id" in data and data["id"] != promotion_id:
+        if data.get("id") is not None and data.get("id") != promotion_id:
             ns.abort(
                 status.HTTP_400_BAD_REQUEST,
                 "The id in the request body does not match the resource path.",
