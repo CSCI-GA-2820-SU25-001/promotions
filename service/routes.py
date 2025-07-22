@@ -27,8 +27,6 @@ from flask_restx import Resource, fields, Namespace
 from service.models import Promotion
 from service.common import status  # HTTP Status Codes
 
-
-
 # Get the API instance from app extensions
 api = app.extensions.get("promotions_api")
 
