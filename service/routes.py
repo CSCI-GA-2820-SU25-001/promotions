@@ -19,10 +19,9 @@ Promotions Service
 This service implements a REST API that allows you to Create, Read, Update
 and Delete Promotions using Flask-RESTX
 """
-import os
+
 from flask import request
 from flask import current_app as app  # Import Flask application
-from flask import send_from_directory
 from flask_restx import Resource, fields, Namespace
 from service.models import Promotion
 from service.common import status  # HTTP Status Codes
@@ -102,10 +101,10 @@ def check_content_type(expected_type):
 ######################################################################
 @app.route("/", methods=["GET"])
 def index():
-    """Serve UI index.html for browsers, JSON for API clients"""
-    if request.accept_mimetypes.accept_html:
-        static_path = os.path.join(app.root_path, "static")
-        return send_from_directory(static_path, "index.html")
+    """Root API endpoint for backward compatibility"""
+    if not request.accept_mimetypes.accept_json:
+        return {"error": "JSON content type required"}, status.HTTP_406_NOT_ACCEPTABLE
+
     return {
         "name": "Promotions REST API",
         "version": "1.0",
@@ -234,7 +233,7 @@ class PromotionResource(Resource):
         if promotion:
             promotion.delete()
 
-        return "", status.HTTP_204_NO_CONTENT
+        return {"message": "Promotion deleted successfully"}, status.HTTP_204_NO_CONTENT
 
 
 ######################################################################
