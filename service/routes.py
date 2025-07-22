@@ -25,7 +25,8 @@ from flask import current_app as app  # Import Flask application
 from flask_restx import Resource, fields, Namespace
 from service.models import Promotion
 from service.common import status  # HTTP Status Codes
-
+from flask import send_from_directory
+import os
 
 # Get the API instance from app extensions
 api = app.extensions.get("promotions_api")
@@ -102,10 +103,10 @@ def check_content_type(expected_type):
 ######################################################################
 @app.route("/", methods=["GET"])
 def index():
-    """Root API endpoint for backward compatibility"""
-    if not request.accept_mimetypes.accept_json:
-        return "", status.HTTP_406_NOT_ACCEPTABLE
-
+    """Serve UI index.html for browsers, JSON for API clients"""
+    if request.accept_mimetypes.accept_html:
+        static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+        return send_from_directory(static_path, "index.html")
     return {
         "name": "Promotions REST API",
         "version": "1.0",

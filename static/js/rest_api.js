@@ -1,233 +1,211 @@
-$(function () {
-    // ****************************************
-    //  U T I L I T Y   F U N C T I O N S
-    // ****************************************
-    function update_form_data(res) {
-        $("#promotion_id").val(res.id);
-        $("#promotion_name").val(res.name);
-        $("#promotion_category").val(res.category);
-        $("#promotion_status").val(res.status ? "true" : "false");
-        $("#promotion_start_date").val(res.start_date || "");
-        $("#promotion_end_date").val(res.end_date || "");
-        $("#promotion_type").val(res.type || "");
-    }
-    function clear_form_data() {
-        $("#promotion_name").val("");
-        $("#promotion_category").val("");
-        $("#promotion_status").val("true");
-        $("#promotion_start_date").val("");
-        $("#promotion_end_date").val("");
-        $("#promotion_type").val("");
-    }
-    function flash_message(message) {
-        $("#flash_message").empty();
-        $("#flash_message").append(message);
-    }
-    // ****************************************
-    // Create a Promotion
-    // ****************************************
-    $("#create-btn").click(function () {
-        let name = $("#promotion_name").val();
-        let type = $("#promotion_type").val();
-        let category = $("#promotion_category").val();
-        let status = $("#promotion_status").val() === "true";
-        let start_date = $("#promotion_start_date").val();
-        let end_date = $("#promotion_end_date").val();
-        let data = {
-            "name": name,
-            "type": type,
-            "category": category,
-            "status": status,
-            "start_date": start_date,
-            "end_date": end_date
-        };
-        $("#flash_message").empty();
-        let ajax = $.ajax({
-            type: "POST",
-            url: "/promotions",
-            contentType: "application/json",
-            data: JSON.stringify(data),
-        });
-        ajax.done(function(res){
-            update_form_data(res)
-            flash_message("Success")
-        });
-        ajax.fail(function(res){
-            flash_message(res.responseJSON.message)
-        });
-    });
-    // ****************************************
-    // Update a Promotion
-    // ****************************************
-    $("#update-btn").click(function () {
-        let promotion_id = $("#promotion_id").val();
-        let name = $("#promotion_name").val();
-        let type = $("#promotion_type").val();
-        let category = $("#promotion_category").val();
-        let status = $("#promotion_status").val() === "true";
-        let start_date = $("#promotion_start_date").val();
-        let end_date = $("#promotion_end_date").val();
-        let data = {
-            "name": name,
-            "type": type,
-            "category": category,
-            "status": status,
-            "start_date": start_date,
-            "end_date": end_date
-        };
-        $("#flash_message").empty();
-        let ajax = $.ajax({
-                type: "PUT",
-                url: `/promotions/${promotion_id}`,
-                contentType: "application/json",
-                data: JSON.stringify(data)
-            })
-        ajax.done(function(res){
-            update_form_data(res)
-            flash_message("Success")
-        });
-        ajax.fail(function(res){
-            flash_message(res.responseJSON.message)
-        });
+// ****************************************
+//  UTILITY FUNCTIONS
+// ****************************************
+
+function flash_message(message) {
+  $("#flash_message").html(message);
+}
+
+function clear_form_data() {
+  $("#promotion_name").val("");
+  $("#promotion_category").val("");
+  $("#promotion_status").val("true");
+  $("#promotion_start_date").val("");
+  $("#promotion_end_date").val("");
+  $("#promotion_type").val("");
+}
+
+function update_form_data(res) {
+  $("#promotion_name").val(res.name);
+  $("#promotion_category").val(res.category);
+  $("#promotion_status").val(res.status);
+  $("#promotion_start_date").val(res.start_date);
+  $("#promotion_end_date").val(res.end_date);
+  $("#promotion_type").val(res.promo_type);
+}
+
+// ****************************************
+//  CREATE A PROMOTION
+// ****************************************
+
+$("#create-btn").click(function () {
+  let data = {
+    name: $("#promotion_name").val(),
+    category: $("#promotion_category").val(),
+    status: $("#promotion_status").val() === "true",
+    start_date: $("#promotion_start_date").val(),
+    end_date: $("#promotion_end_date").val(),
+    promo_type: $("#promotion_type").val(),
+  };
+
+  $.ajax({
+    type: "POST",
+    url: "/api/promotions",
+    contentType: "application/json",
+    data: JSON.stringify(data),
+    success: function (res) {
+      $("#promotion_id").val(res.id);
+      flash_message("Promotion created successfully");
+    },
+    error: function (res) {
+      flash_message(res.responseJSON.message);
+    },
+  });
+});
+
+// ****************************************
+//  RETRIEVE A PROMOTION
+// ****************************************
+
+$("#retrieve-btn").click(function () {
+  let id = $("#promotion_id").val();
+
+  $.ajax({
+    type: "GET",
+    url: `/api/promotions/${id}`,
+    success: function (res) {
+      update_form_data(res);
+      flash_message("Promotion retrieved successfully");
+    },
+    error: function (res) {
+      flash_message(res.responseJSON.message);
+    },
+  });
+});
+
+// ****************************************
+//  UPDATE A PROMOTION
+// ****************************************
+
+$("#update-btn").click(function () {
+  let id = $("#promotion_id").val();
+  let data = {
+    name: $("#promotion_name").val(),
+    category: $("#promotion_category").val(),
+    status: $("#promotion_status").val() === "true",
+    start_date: $("#promotion_start_date").val(),
+    end_date: $("#promotion_end_date").val(),
+    promo_type: $("#promotion_type").val(),
+  };
+
+  $.ajax({
+    type: "PUT",
+    url: `/api/promotions/${id}`,
+    contentType: "application/json",
+    data: JSON.stringify(data),
+    success: function () {
+      flash_message("Promotion updated successfully");
+    },
+    error: function (res) {
+      flash_message(res.responseJSON.message);
+    },
+  });
+});
+
+// ****************************************
+//  DEACTIVATE A PROMOTION (SOFT DELETE)
+// ****************************************
+
+$("#deactivate-btn").click(function () {
+  let id = $("#promotion_id").val();
+
+  $.ajax({
+    type: "DELETE",
+    url: `/api/promotions/${id}/deactivate`,
+    success: function () {
+      flash_message("Promotion deactivated successfully");
+      $("#search-btn").click(); // Refresh list
+    },
+    error: function (res) {
+      flash_message(res.responseJSON.message);
+    },
+  });
+});
+
+// ****************************************
+//  SEARCH PROMOTIONS
+// ****************************************
+
+$("#search-btn").click(function () {
+  let category = $("#promotion_category").val();
+  let promo_type = $("#promotion_type").val();
+  let query = [];
+
+  if (category) query.push(`category=${category}`);
+  if (promo_type) query.push(`promo_type=${promo_type}`);
+
+  let url = "/api/promotions";
+  if (query.length > 0) {
+    url += "?" + query.join("&");
+  }
+
+  $.get(url, function (data) {
+    $("table tbody").empty();
+
+    data.forEach((promo) => {
+      renderPromotion(promo);
     });
 
-    // ****************************************
-    // Deactivate a Promotion (Soft Delete)
-    // ****************************************
-    $("#deactivate-btn").click(function () {
-        let promotion_id = $("#promotion_id").val();
-        $("#flash_message").empty();
-        let ajax = $.ajax({
-            type: "DELETE",
-            url: `/promotions/${promotion_id}/deactivate`,
-            contentType: "application/json",
-            data: '',
-        })
-        ajax.done(function(res){
-            clear_form_data()
-            flash_message("Promotion has been Deactivated!")
-        });
-        ajax.fail(function(res){
-            flash_message("Server error!")
-        });
-    });
-    // ****************************************
-    // Retrieve a Promotion
-    // ****************************************
-    $("#retrieve-btn").click(function () {
-        let promotion_id = $("#promotion_id").val();
-        $("#flash_message").empty();
-        let ajax = $.ajax({
-            type: "GET",
-            url: `/promotions/${promotion_id}`,
-            contentType: "application/json",
-            data: ''
-        })
-        ajax.done(function(res){
-            update_form_data(res)
-            flash_message("Success")
-        });
-        ajax.fail(function(res){
-            clear_form_data()
-            flash_message(res.responseJSON.message)
-        });
-    });
-    // ****************************************
-    // Delete a Promotion
-    // ****************************************
-    $("#delete-btn").click(function () {
-        let promotion_id = $("#promotion_id").val();
-        $("#flash_message").empty();
-        let ajax = $.ajax({
-            type: "DELETE",
-            url: `/promotions/${promotion_id}`,
-            contentType: "application/json",
-            data: '',
-        })
-        ajax.done(function(res){
-            clear_form_data()
-            flash_message("Promotion has been Deleted!")
-        });
-        ajax.fail(function(res){
-            flash_message("Server error!")
-        });
-    });
-    // ****************************************
-    // Clear the form
-    // ****************************************
-    $("#clear-btn").click(function () {
-        $("#promotion_id").val("");
-        $("#flash_message").empty();
-        clear_form_data()
-    });
-    // ****************************************
-    // Search for a Promotion
-    // ****************************************
-    $("#search-btn").click(function () {
-        let name = $("#promotion_name").val();
-        let category = $("#promotion_category").val();
-        let type = $("#promotion_type").val();
-        let status = $("#promotion_status").val() === "true";
-        let queryString = "";
-        if (name) {
-            queryString += 'name=' + name
-        }
-        if (category) {
-            if (queryString.length > 0) {
-                queryString += '&category=' + category
-            } else {
-                queryString += 'category=' + category
-            }
-        }
-        if (status) {
-            if (queryString.length > 0) {
-                queryString += '&status=' + status
-            } else {
-                queryString += 'status=' + status
-            }
-        if (type) {
-            if (queryString.length > 0) {
-                queryString += '&type=' + type
-            } else {
-                queryString += 'type=' + type
-            }
-        }
-        $("#flash_message").empty();
-        let ajax = $.ajax({
-            type: "GET",
-            url: `/promotions?${queryString}`,
-            contentType: "application/json",
-            data: ''
-        })
-        ajax.done(function(res){
-            $("#search_results").empty();
-            let table = '<table class="table table-striped" cellpadding="10">'
-            table += '<thead><tr>'
-            table += '<th class="col-md-2">ID</th>'
-            table += '<th class="col-md-2">Name</th>'
-            table += '<th class="col-md-2">Category</th>'
-            table += '<th class="col-md-2">Status</th>'
-            table += '<th class="col-md-2">Start Date</th>'
-            table += '<th class="col-md-2">End Date</th>'
-            table += '<th class="col-md-2">Type</th>'
-            table += '</tr></thead><tbody>'
-            let firstPromotion = "";
-            for(let i = 0; i < res.length; i++) {
-                let promotion = res[i];
-                table +=  `<tr id="row_${i}"><td>${promotion.id}</td><td>${promotion.name}</td><td>${promotion.category}</td><td>${promotion.status}</td><td>${promotion.start_date || ""}</td><td>${promotion.end_date || ""}</td><td>${promotion.type || ""}</td></tr>`;
-                if (i == 0) {
-                    firstPromotion = promotion;
-                }
-            }
-            table += '</tbody></table>';
-            $("#search_results").append(table);
-            if (firstPromotion != "") {
-                update_form_data(firstPromotion)
-            }
-            flash_message("Success")
-        });
-        ajax.fail(function(res){
-            flash_message(res.responseJSON.message)
-        });
-    });
-})
+    flash_message("Search complete");
+  });
+});
+
+// ****************************************
+//  CLEAR FORM
+// ****************************************
+
+$("#clear-btn").click(function () {
+  $("#promotion_id").val("");
+  clear_form_data();
+  flash_message("");
+});
+
+// ****************************************
+//  TOGGLE BUTTON HANDLER (ACTIVATE/DEACTIVATE)
+// ****************************************
+
+function renderPromotion(promo) {
+  let statusText = promo.status ? "Active" : "Inactive";
+  let actionBtn = promo.status
+    ? `<button class="btn btn-warning btn-sm activate-btn" data-id="${promo.id}" data-action="deactivate">Deactivate</button>`
+    : `<button class="btn btn-success btn-sm activate-btn" data-id="${promo.id}" data-action="activate">Activate</button>`;
+
+  let row = `
+    <tr>
+      <td>${promo.id}</td>
+      <td>${promo.name}</td>
+      <td>${promo.category || ""}</td>
+      <td>${statusText}</td>
+      <td>${promo.start_date}</td>
+      <td>${promo.end_date}</td>
+      <td>${promo.promo_type}</td>
+      <td>${actionBtn}</td>
+    </tr>
+  `;
+  $("table tbody").append(row);
+}
+
+$("table").on("click", ".activate-btn", function () {
+  let promoId = $(this).data("id");
+  let action = $(this).data("action"); // "activate" or "deactivate"
+  let method = action === "activate" ? "PUT" : "DELETE";
+  let url = `/api/promotions/${promoId}/${action}`;
+
+  $.ajax({
+    type: method,
+    url: url,
+    success: function () {
+      flash_message(`Promotion ${promoId} ${action}d successfully`);
+      $("#search-btn").click(); // Refresh the list
+    },
+    error: function (res) {
+      flash_message(res.responseJSON.message);
+    },
+  });
+});
+
+// COMMENT: 
+// - Added full toggle support for Activate/Deactivate.
+// - `renderPromotion` appends dynamic buttons.
+// - Event handler sends correct request and refreshes list.
+
