@@ -22,7 +22,7 @@ and Delete Promotions using Flask-RESTX
 import os
 from flask import request
 from flask import current_app as app  # Import Flask application
-from flask import send_from_directory, abort
+from flask import send_from_directory
 from flask_restx import Resource, fields, Namespace
 from service.models import Promotion
 from service.common import status  # HTTP Status Codes
