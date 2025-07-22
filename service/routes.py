@@ -19,14 +19,15 @@ Promotions Service
 This service implements a REST API that allows you to Create, Read, Update
 and Delete Promotions using Flask-RESTX
 """
-
+import os
 from flask import request
 from flask import current_app as app  # Import Flask application
+from flask import send_from_directory
 from flask_restx import Resource, fields, Namespace
 from service.models import Promotion
 from service.common import status  # HTTP Status Codes
-from flask import send_from_directory
-import os
+
+
 
 # Get the API instance from app extensions
 api = app.extensions.get("promotions_api")
