@@ -104,7 +104,7 @@ def check_content_type(expected_type):
 def index():
     """Root API endpoint for backward compatibility"""
     if not request.accept_mimetypes.accept_json:
-        return "", status.HTTP_406_NOT_ACCEPTABLE
+        return {"error": "JSON content type required"}, status.HTTP_406_NOT_ACCEPTABLE
 
     return {
         "name": "Promotions REST API",
@@ -234,7 +234,7 @@ class PromotionResource(Resource):
         if promotion:
             promotion.delete()
 
-        return "", status.HTTP_204_NO_CONTENT
+        return {"message": "Promotion deleted successfully"}, status.HTTP_204_NO_CONTENT
 
 
 ######################################################################
