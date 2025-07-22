@@ -97,16 +97,6 @@ def check_content_type(expected_type):
         )
 
 
-@app.before_request
-def check_accept_header():
-    """Abort with 406 if Accept header is not JSON or HTML."""
-    if not request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
-        abort(
-            status.HTTP_406_NOT_ACCEPTABLE,
-            description="Not Acceptable: Only 'application/json' or 'text/html' is supported."
-        )
-
-
 ######################################################################
 # ROOT ENDPOINT (Serve index.html)
 ######################################################################
