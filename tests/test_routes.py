@@ -347,23 +347,9 @@ class TestYourResourceService(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_not_acceptable(self):
-        """
-        It should return 200 OK when Accept header is unsupported but not enforced.
-
-        Originally, this test expected a 406 NOT ACCEPTABLE response when the
-        'Accept' header is not 'application/json' or 'text/html'.
-
-        However, since @app.before_request validation of the Accept header
-        was removed (or is not enforced in this service), Flask will proceed
-        to return static files like index.html regardless of Accept type.
-
-        Therefore, this test now expects a 200 OK response instead of 406.
-
-        Original assertion (for reference if Accept validation is restored later):
-            self.assertEqual(resp.status_code, status.HTTP_406_NOT_ACCEPTABLE)
-        """
+        """It should return 406 NOT ACCEPTABLE for unsupported Accept headers."""
         resp = self.client.get("/", headers={"Accept": "application/xml"})
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.status_code, status.HTTP_406_NOT_ACCEPTABLE)
 
     def test_unsupported_media_type(self):
         """It should return 415 UNSUPPORTED MEDIA TYPE for invalid Content-Type."""
