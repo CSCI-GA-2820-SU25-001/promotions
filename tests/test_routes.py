@@ -142,7 +142,6 @@ class TestYourResourceService(TestCase):
         self.assertTrue(data[0]["status"])
         self.assertTrue(data[1]["status"])
 
-    # test to trigger check_content_type error to make the coverage above 95%
     def test_create_promotion_with_wrong_content_type(self):
         """It should return 415 UNSUPPORTED MEDIA TYPE if Content-Type is wrong"""
         test_data = {
@@ -155,7 +154,9 @@ class TestYourResourceService(TestCase):
         }
 
         response = self.client.post(
-            "/api/promotions", data=str(test_data), headers={"Content-Type": "text/plain"}
+            "/api/promotions",
+            data=str(test_data),
+            headers={"Content-Type": "text/plain"},
         )
         self.assertEqual(response.status_code, 415)
 
@@ -360,3 +361,232 @@ class TestYourResourceService(TestCase):
     def test_logging_handler_setup(self):
         """It should initialize the logging handler properly."""
         init_logging(app, "gunicorn.error")
+
+    def test_health_check_endpoint(self):
+        """It should return health status OK"""
+        resp = self.client.get("/api/promotions/health")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertEqual(data["status"], "OK")
+
+    def test_activate_nonexistent_promotion(self):
+        """It should return 404 when activating a non-existent promotion"""
+        resp = self.client.put("/api/promotions/9999/activate")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_deactivate_nonexistent_promotion(self):
+        """It should return 404 when deactivating a non-existent promotion"""
+        resp = self.client.delete("/api/promotions/9999/deactivate")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_create_promotion_with_invalid_json(self):
+        """It should return 400 for malformed JSON"""
+        resp = self.client.post(
+            "/api/promotions",
+            data="{invalid json}",
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_promotion_missing_required_fields(self):
+        """It should return 400 for missing required fields"""
+        incomplete_data = {
+            "name": "Incomplete Promo",
+            # Missing promo_type, product_id, amount, start_date, end_date
+        }
+        resp = self.client.post("/api/promotions", json=incomplete_data)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_update_promotion_with_invalid_json(self):
+        """It should return 400 for malformed JSON in update"""
+        pid = self._create_sample_promo()
+        resp = self.client.put(
+            f"/api/promotions/{pid}",
+            data="{invalid json}",
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_promotion_with_wrong_content_type_text(self):
+        """It should return 415 for wrong content type on create"""
+        promo_data = {
+            "name": "Test Promo",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 1,
+            "amount": 10.0,
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-31",
+        }
+        resp = self.client.post(
+            "/api/promotions", json=promo_data, headers={"Content-Type": "text/plain"}
+        )
+        self.assertEqual(resp.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+
+    def test_update_promotion_with_wrong_content_type(self):
+        """It should return 415 for wrong content type on update"""
+        pid = self._create_sample_promo()
+        update_data = {
+            "name": "Updated Promo",
+            "promo_type": "AMOUNT_OFF",
+            "product_id": 2,
+            "amount": 5.0,
+            "start_date": "2025-02-01",
+            "end_date": "2025-02-28",
+        }
+        resp = self.client.put(
+            f"/api/promotions/{pid}",
+            json=update_data,
+            headers={"Content-Type": "text/xml"},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+
+    def test_get_promotion_with_string_id(self):
+        """It should handle string IDs gracefully"""
+        resp = self.client.get("/api/promotions/abc")
+        # Flask-RESTX should handle this and return 404
+        self.assertIn(
+            resp.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_400_BAD_REQUEST]
+        )
+
+    def test_update_promotion_with_string_id(self):
+        """It should handle string IDs gracefully in update"""
+        update_data = {
+            "name": "Test Update",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 1,
+            "amount": 15.0,
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-31",
+        }
+        resp = self.client.put("/api/promotions/abc", json=update_data)
+        # Flask-RESTX should handle this and return 404
+        self.assertIn(
+            resp.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_400_BAD_REQUEST]
+        )
+
+    def test_delete_promotion_with_string_id(self):
+        """It should handle string IDs gracefully in delete"""
+        resp = self.client.delete("/api/promotions/abc")
+        # Flask-RESTX should handle this and return 404
+        self.assertIn(
+            resp.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_400_BAD_REQUEST]
+        )
+
+    def test_activate_promotion_with_string_id(self):
+        """It should handle string IDs gracefully in activate"""
+        resp = self.client.put("/api/promotions/abc/activate")
+        # Flask-RESTX should handle this and return 404
+        self.assertIn(
+            resp.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_400_BAD_REQUEST]
+        )
+
+    def test_deactivate_promotion_with_string_id(self):
+        """It should handle string IDs gracefully in deactivate"""
+        resp = self.client.delete("/api/promotions/abc/deactivate")
+        # Flask-RESTX should handle this and return 404
+        self.assertIn(
+            resp.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_400_BAD_REQUEST]
+        )
+
+    def test_create_promotion_with_additional_fields(self):
+        """It should handle creation with additional fields that are ignored"""
+        promo_data = {
+            "name": "Test Promo with Extra",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 1,
+            "amount": 10.0,
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-31",
+            "extra_field": "should be ignored",
+            "another_extra": 999,
+        }
+        resp = self.client.post("/api/promotions", json=promo_data)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        data = resp.get_json()
+        self.assertEqual(data["name"], "Test Promo with Extra")
+        self.assertNotIn("extra_field", data)
+        self.assertNotIn("another_extra", data)
+
+    def test_update_promotion_preserve_id(self):
+        """It should preserve the promotion ID during update"""
+        pid = self._create_sample_promo()
+        update_data = {
+            "id": pid,  # Include the correct ID
+            "name": "ID Preserved Update",
+            "promo_type": "AMOUNT_OFF",
+            "product_id": 3,
+            "amount": 7.5,
+            "start_date": "2025-03-01",
+            "end_date": "2025-03-31",
+        }
+        resp = self.client.put(f"/api/promotions/{pid}", json=update_data)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertEqual(data["id"], pid)
+        self.assertEqual(data["name"], "ID Preserved Update")
+
+    def test_list_promotions_empty_database(self):
+        """It should return empty list when no promotions exist"""
+        # Clear all promotions first
+        promotions = Promotion.all()
+        for promotion in promotions:
+            promotion.delete()
+
+        resp = self.client.get("/api/promotions")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 0)
+
+    def test_multiple_promotions_list(self):
+        """It should return multiple promotions when they exist"""
+        # Create multiple promotions
+        promo1 = {
+            "name": "First Promo",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 1,
+            "amount": 10.0,
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-31",
+        }
+        promo2 = {
+            "name": "Second Promo",
+            "promo_type": "BOGO",
+            "product_id": 2,
+            "amount": 1.0,
+            "start_date": "2025-02-01",
+            "end_date": "2025-02-28",
+        }
+        promo3 = {
+            "name": "Third Promo",
+            "promo_type": "AMOUNT_OFF",
+            "product_id": 3,
+            "amount": 5.0,
+            "start_date": "2025-03-01",
+            "end_date": "2025-03-31",
+        }
+
+        self.client.post("/api/promotions", json=promo1)
+        self.client.post("/api/promotions", json=promo2)
+        self.client.post("/api/promotions", json=promo3)
+
+        resp = self.client.get("/api/promotions")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertIsInstance(data, list)
+        self.assertGreaterEqual(len(data), 3)
+
+    def test_promotion_status_defaults_to_true(self):
+        """It should set promotion status to True by default on creation"""
+        promo_data = {
+            "name": "Default Status Promo",
+            "promo_type": "PERCENT_OFF",
+            "product_id": 1,
+            "amount": 15.0,
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-31",
+        }
+        resp = self.client.post("/api/promotions", json=promo_data)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        data = resp.get_json()
+        self.assertTrue(data["status"])  # Should default to True

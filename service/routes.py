@@ -28,33 +28,60 @@ from service.common import status  # HTTP Status Codes
 
 
 # Get the API instance from app extensions
-api = app.extensions.get('promotions_api')
+api = app.extensions.get("promotions_api")
 
 # Define the promotion namespace
-ns = Namespace('promotions', description='Promotion operations')
+ns = Namespace("promotions", description="Promotion operations")
 if api:
     api.add_namespace(ns)
 
 # Define the promotion model for Swagger documentation
-promotion_model = ns.model('Promotion', {
-    'id': fields.Integer(readOnly=True, description='The promotion unique identifier'),
-    'name': fields.String(required=True, description='The promotion name'),
-    'promo_type': fields.String(required=True, description='The promotion type (PERCENT_OFF, BOGO, AMOUNT_OFF)'),
-    'product_id': fields.Integer(required=True, description='The product identifier'),
-    'amount': fields.Float(required=True, description='The discount amount'),
-    'start_date': fields.String(required=True, description='The start date (YYYY-MM-DD)'),
-    'end_date': fields.String(required=True, description='The end date (YYYY-MM-DD)'),
-    'status': fields.Boolean(readOnly=True, description='The promotion status')
-})
+promotion_model = ns.model(
+    "Promotion",
+    {
+        "id": fields.Integer(
+            readOnly=True, description="The promotion unique identifier"
+        ),
+        "name": fields.String(required=True, description="The promotion name"),
+        "promo_type": fields.String(
+            required=True,
+            description="The promotion type (PERCENT_OFF, BOGO, AMOUNT_OFF)",
+        ),
+        "product_id": fields.Integer(
+            required=True, description="The product identifier"
+        ),
+        "amount": fields.Float(required=True, description="The discount amount"),
+        "start_date": fields.String(
+            required=True, description="The start date (YYYY-MM-DD)"
+        ),
+        "end_date": fields.String(
+            required=True, description="The end date (YYYY-MM-DD)"
+        ),
+        "status": fields.Boolean(readOnly=True, description="The promotion status"),
+    },
+)
 
-create_model = ns.model('PromotionCreate', {
-    'name': fields.String(required=True, description='The promotion name'),
-    'promo_type': fields.String(required=True, description='The promotion type (PERCENT_OFF, BOGO, AMOUNT_OFF)'),
-    'product_id': fields.Integer(required=True, description='The product identifier'),
-    'amount': fields.Float(required=True, description='The discount amount'),
-    'start_date': fields.String(required=True, description='The start date (YYYY-MM-DD)'),
-    'end_date': fields.String(required=True, description='The end date (YYYY-MM-DD)')
-})
+create_model = ns.model(
+    "PromotionCreate",
+    {
+        "name": fields.String(required=True, description="The promotion name"),
+        "promo_type": fields.String(
+            required=True,
+            description="The promotion type (PERCENT_OFF, BOGO, AMOUNT_OFF)",
+        ),
+        "product_id": fields.Integer(
+            required=True, description="The product identifier"
+        ),
+        "amount": fields.Float(required=True, description="The discount amount"),
+        "start_date": fields.String(
+            required=True, description="The start date (YYYY-MM-DD)"
+        ),
+        "end_date": fields.String(
+            required=True, description="The end date (YYYY-MM-DD)"
+        ),
+    },
+)
+
 
 ######################################################################
 # HELPER FUNCTION
@@ -78,7 +105,7 @@ def index():
     """Root API endpoint for backward compatibility"""
     if not request.accept_mimetypes.accept_json:
         return "", status.HTTP_406_NOT_ACCEPTABLE
-    
+
     return {
         "name": "Promotions REST API",
         "version": "1.0",
@@ -89,11 +116,11 @@ def index():
 ######################################################################
 # PROMOTION COLLECTION RESOURCE
 ######################################################################
-@ns.route('')
+@ns.route("")
 class PromotionCollection(Resource):
     """Handles all interactions with collections of Promotions"""
-    
-    @ns.doc('list_promotions')
+
+    @ns.doc("list_promotions")
     @ns.marshal_list_with(promotion_model)
     def get(self):
         """Fetch all Promotions"""
@@ -119,8 +146,8 @@ class PromotionCollection(Resource):
         promotions = Promotion.all()
         results = [p.serialize() for p in promotions]
         return results, status.HTTP_200_OK
-    
-    @ns.doc('create_promotion')
+
+    @ns.doc("create_promotion")
     @ns.expect(create_model)
     @ns.marshal_with(promotion_model, code=201)
     def post(self):
@@ -135,21 +162,27 @@ class PromotionCollection(Resource):
         promotion.deserialize(data)
         promotion.create()
         app.logger.info("promotion with new id [%s] saved!", promotion.id)
-        
-        return promotion.serialize(), status.HTTP_201_CREATED, {
-            'Location': ns.url_for(PromotionResource, promotion_id=promotion.id, _external=True)
-        }
+
+        return (
+            promotion.serialize(),
+            status.HTTP_201_CREATED,
+            {
+                "Location": api.url_for(
+                    PromotionResource, promotion_id=promotion.id, _external=True
+                )
+            },
+        )
 
 
 ######################################################################
 # PROMOTION RESOURCE
 ######################################################################
-@ns.route('/<int:promotion_id>')
-@ns.param('promotion_id', 'The Promotion identifier')
+@ns.route("/<int:promotion_id>")
+@ns.param("promotion_id", "The Promotion identifier")
 class PromotionResource(Resource):
     """Handles all interactions with a single Promotion"""
-    
-    @ns.doc('get_promotion')
+
+    @ns.doc("get_promotion")
     @ns.marshal_with(promotion_model)
     def get(self, promotion_id):
         """Fetch a Promotion"""
@@ -161,8 +194,8 @@ class PromotionResource(Resource):
                 f"Promotion with id '{promotion_id}' was not found.",
             )
         return promotion.serialize(), status.HTTP_200_OK
-    
-    @ns.doc('update_promotion')
+
+    @ns.doc("update_promotion")
     @ns.expect(promotion_model)
     @ns.marshal_with(promotion_model)
     def put(self, promotion_id):
@@ -190,8 +223,8 @@ class PromotionResource(Resource):
         promotion.update()
 
         return promotion.serialize(), status.HTTP_200_OK
-    
-    @ns.doc('delete_promotion')
+
+    @ns.doc("delete_promotion")
     def delete(self, promotion_id):
         """Delete a Promotion"""
         app.logger.info("Request to delete Promotion with id: %s", promotion_id)
@@ -207,12 +240,12 @@ class PromotionResource(Resource):
 ######################################################################
 # PROMOTION ACTION RESOURCES
 ######################################################################
-@ns.route('/<int:promotion_id>/activate')
-@ns.param('promotion_id', 'The Promotion identifier')
+@ns.route("/<int:promotion_id>/activate")
+@ns.param("promotion_id", "The Promotion identifier")
 class ActivatePromotionResource(Resource):
     """Activate a Promotion"""
-    
-    @ns.doc('activate_promotion')
+
+    @ns.doc("activate_promotion")
     def put(self, promotion_id):
         """Activate a Promotion by setting status=True"""
         app.logger.info("Request to activate Promotion with id: %s", promotion_id)
@@ -228,16 +261,16 @@ class ActivatePromotionResource(Resource):
         promotion.update()
         return {
             "message": f"Promotion {promotion_id} activated",
-            "status": promotion.status
+            "status": promotion.status,
         }, status.HTTP_200_OK
 
 
-@ns.route('/<int:promotion_id>/deactivate')
-@ns.param('promotion_id', 'The Promotion identifier')
+@ns.route("/<int:promotion_id>/deactivate")
+@ns.param("promotion_id", "The Promotion identifier")
 class DeactivatePromotionResource(Resource):
     """Deactivate a Promotion"""
-    
-    @ns.doc('deactivate_promotion')
+
+    @ns.doc("deactivate_promotion")
     def delete(self, promotion_id):
         """Deactivate a Promotion by setting status=False"""
         app.logger.info("Request to deactivate Promotion with id: %s", promotion_id)
@@ -253,11 +286,11 @@ class DeactivatePromotionResource(Resource):
         return promotion.serialize(), status.HTTP_200_OK
 
 
-@ns.route('/health')
+@ns.route("/health")
 class HealthCheckResource(Resource):
     """Health check endpoint"""
-    
-    @ns.doc('health_check')
+
+    @ns.doc("health_check")
     def get(self):
         """Health check endpoint"""
         return {"status": "OK"}, status.HTTP_200_OK

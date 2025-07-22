@@ -37,26 +37,28 @@ def create_app():
     # Initialize Plugins
     # pylint: disable=import-outside-toplevel
     from service.models import db
+
     db.init_app(app)
 
     # Initialize Flask-RESTX after database initialization
-    from flask_restx import Api
-    api = Api(app, 
-              version='1.0', 
-              title='Promotions REST API',
-              description='A REST API for managing promotional offers',
-              prefix='/api',
-              doc='/api/')
-    
+    api = Api(
+        app,
+        version="1.0",
+        title="Promotions REST API",
+        description="A REST API for managing promotional offers",
+        prefix="/api",
+        doc="/api/",
+    )
+
     # Store API in app extensions for later access
-    app.extensions['promotions_api'] = api
+    app.extensions["promotions_api"] = api
 
     with app.app_context():
         # Dependencies require we import the routes AFTER the Flask app is created
         # pylint: disable=wrong-import-position, wrong-import-order, unused-import
         from service import models  # noqa: F401 E402
         from service.common import error_handlers, cli_commands  # noqa: F401, E402
-        
+
         # Import routes after API initialization to avoid circular imports
         from service import routes  # noqa: F401, E402
 
