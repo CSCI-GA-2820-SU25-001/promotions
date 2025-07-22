@@ -8,11 +8,19 @@ ENV PYTHONUNBUFFERED 1
 # Set the working directory
 WORKDIR /app
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy the Pipfiles
 COPY Pipfile Pipfile.lock ./
 
 # Install dependencies
-RUN pip install pipenv && pipenv install --system --deploy
+RUN pip install --upgrade pip pipenv && pipenv install --system --deploy
+
+# Verify flask-restx installation
+RUN python -c "import flask_restx; print('flask-restx installed successfully')"
 
 # Copy the application code
 COPY wsgi.py .
