@@ -9,6 +9,7 @@ $(function () {
         $("#promotion_status").val(res.status ? "true" : "false");
         $("#promotion_start_date").val(res.start_date || "");
         $("#promotion_end_date").val(res.end_date || "");
+        $("#promotion_type").val(res.type || "");
     }
     function clear_form_data() {
         $("#promotion_name").val("");
@@ -16,6 +17,7 @@ $(function () {
         $("#promotion_status").val("true");
         $("#promotion_start_date").val("");
         $("#promotion_end_date").val("");
+        $("#promotion_type").val("");
     }
     function flash_message(message) {
         $("#flash_message").empty();
@@ -26,12 +28,14 @@ $(function () {
     // ****************************************
     $("#create-btn").click(function () {
         let name = $("#promotion_name").val();
+        let type = $("#promotion_type").val();
         let category = $("#promotion_category").val();
         let status = $("#promotion_status").val() === "true";
         let start_date = $("#promotion_start_date").val();
         let end_date = $("#promotion_end_date").val();
         let data = {
             "name": name,
+            "type": type,
             "category": category,
             "status": status,
             "start_date": start_date,
@@ -58,12 +62,14 @@ $(function () {
     $("#update-btn").click(function () {
         let promotion_id = $("#promotion_id").val();
         let name = $("#promotion_name").val();
+        let type = $("#promotion_type").val();
         let category = $("#promotion_category").val();
         let status = $("#promotion_status").val() === "true";
         let start_date = $("#promotion_start_date").val();
         let end_date = $("#promotion_end_date").val();
         let data = {
             "name": name,
+            "type": type,
             "category": category,
             "status": status,
             "start_date": start_date,
@@ -82,6 +88,27 @@ $(function () {
         });
         ajax.fail(function(res){
             flash_message(res.responseJSON.message)
+        });
+    });
+
+    // ****************************************
+    // Deactivate a Promotion (Soft Delete)
+    // ****************************************
+    $("#deactivate-btn").click(function () {
+        let promotion_id = $("#promotion_id").val();
+        $("#flash_message").empty();
+        let ajax = $.ajax({
+            type: "DELETE",
+            url: `/promotions/${promotion_id}/deactivate`,
+            contentType: "application/json",
+            data: '',
+        })
+        ajax.done(function(res){
+            clear_form_data()
+            flash_message("Promotion has been Deactivated!")
+        });
+        ajax.fail(function(res){
+            flash_message("Server error!")
         });
     });
     // ****************************************
@@ -139,6 +166,7 @@ $(function () {
     $("#search-btn").click(function () {
         let name = $("#promotion_name").val();
         let category = $("#promotion_category").val();
+        let type = $("#promotion_type").val();
         let status = $("#promotion_status").val() === "true";
         let queryString = "";
         if (name) {
@@ -156,6 +184,12 @@ $(function () {
                 queryString += '&status=' + status
             } else {
                 queryString += 'status=' + status
+            }
+        if (type) {
+            if (queryString.length > 0) {
+                queryString += '&type=' + type
+            } else {
+                queryString += 'type=' + type
             }
         }
         $("#flash_message").empty();
@@ -175,11 +209,12 @@ $(function () {
             table += '<th class="col-md-2">Status</th>'
             table += '<th class="col-md-2">Start Date</th>'
             table += '<th class="col-md-2">End Date</th>'
+            table += '<th class="col-md-2">Type</th>'
             table += '</tr></thead><tbody>'
             let firstPromotion = "";
             for(let i = 0; i < res.length; i++) {
                 let promotion = res[i];
-                table +=  `<tr id="row_${i}"><td>${promotion.id}</td><td>${promotion.name}</td><td>${promotion.category}</td><td>${promotion.status}</td><td>${promotion.start_date || ""}</td><td>${promotion.end_date || ""}</td></tr>`;
+                table +=  `<tr id="row_${i}"><td>${promotion.id}</td><td>${promotion.name}</td><td>${promotion.category}</td><td>${promotion.status}</td><td>${promotion.start_date || ""}</td><td>${promotion.end_date || ""}</td><td>${promotion.type || ""}</td></tr>`;
                 if (i == 0) {
                     firstPromotion = promotion;
                 }
