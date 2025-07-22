@@ -19,13 +19,13 @@ Promotions Service
 This service implements a REST API that allows you to Create, Read, Update
 and Delete Promotions using Flask-RESTX
 """
-
+import os
 from flask import request
 from flask import current_app as app  # Import Flask application
+from flask import send_from_directory
 from flask_restx import Resource, fields, Namespace
 from service.models import Promotion
 from service.common import status  # HTTP Status Codes
-
 
 # Get the API instance from app extensions
 api = app.extensions.get("promotions_api")
@@ -98,14 +98,14 @@ def check_content_type(expected_type):
 
 
 ######################################################################
-# ROOT ENDPOINT (Keep backward compatibility)
+# ROOT ENDPOINT (Serve index.html)
 ######################################################################
 @app.route("/", methods=["GET"])
 def index():
-    """Root API endpoint for backward compatibility"""
-    if not request.accept_mimetypes.accept_json:
-        return "", status.HTTP_406_NOT_ACCEPTABLE
-
+    """Serve UI index.html for browsers, JSON for API clients"""
+    if request.accept_mimetypes.accept_html:
+        static_path = os.path.join(app.root_path, "static")
+        return send_from_directory(static_path, "index.html")
     return {
         "name": "Promotions REST API",
         "version": "1.0",
@@ -212,7 +212,7 @@ class PromotionResource(Resource):
 
         data = request.get_json()
         # If the body contains an id, make sure it matches the path
-        if "id" in data and data["id"] != promotion_id:
+        if data.get("id") is not None and data.get("id") != promotion_id:
             ns.abort(
                 status.HTTP_400_BAD_REQUEST,
                 "The id in the request body does not match the resource path.",
