@@ -99,13 +99,13 @@ def check_content_type(expected_type):
 
 
 ######################################################################
-# ROOT ENDPOINT (Keep backward compatibility)
+# ROOT ENDPOINT (Serve index.html)
 ######################################################################
 @app.route("/", methods=["GET"])
 def index():
     """Serve UI index.html for browsers, JSON for API clients"""
     if request.accept_mimetypes.accept_html:
-        static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+        static_path = os.path.join(app.root_path, "static")
         return send_from_directory(static_path, "index.html")
     return {
         "name": "Promotions REST API",
