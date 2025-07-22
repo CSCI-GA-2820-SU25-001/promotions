@@ -17,7 +17,11 @@
 					"testdb",		
 					"creds",
 					"virtualenvs",
-					"shopcarts"
+					"shopcarts",
+					"restx",
+					"flask_restx",
+					"gunicorn",
+					"wsgi"
 				],
 				"[python]": {
 					"editor.defaultFormatter": "ms-python.black-formatter",
