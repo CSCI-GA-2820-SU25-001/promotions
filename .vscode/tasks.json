@@ -1,0 +1,45 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Clean Start Server",
+            "type": "shell",
+            "command": "sudo fuser -k 8080/tcp 2>/dev/null || true; sleep 1; honcho start",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "Stop Server",
+            "type": "shell",
+            "command": "sudo fuser -k 8080/tcp 2>/dev/null || true",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false
+            }
+        },
+        {
+            "label": "Start Development Server",
+            "type": "shell",
+            "command": "honcho start",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "isBackground": true,
+            "dependsOn": "Stop Server",
+            "problemMatcher": []
+        }
+    ]
+}
