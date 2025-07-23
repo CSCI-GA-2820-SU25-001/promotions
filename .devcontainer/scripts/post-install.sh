@@ -25,6 +25,16 @@ else
     echo "flask-restx is already installed"
 fi
 
+echo "Ensuring port 8080 is free for development..."
+# Kill any processes that might be using port 8080
+sudo fuser -k 8080/tcp 2>/dev/null || echo "Port 8080 is free"
+
+# Also kill any lingering gunicorn processes
+pkill -f "gunicorn.*wsgi:app" 2>/dev/null || echo "No gunicorn processes found"
+
+# Wait for cleanup
+sleep 2
+
 echo "**********************************************************************"
 echo "Setup complete"
 echo "**********************************************************************"

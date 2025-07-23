@@ -28,6 +28,11 @@ COPY service/ ./service/
 
 # Set non-root user (optional, but good for security)
 RUN useradd --uid 1001 flask && chown -R flask /app
+
+# Expose the port
+EXPOSE 8080
+
+# Switch to non-root user
 USER flask
 
 # Start the service

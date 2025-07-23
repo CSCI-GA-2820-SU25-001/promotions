@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: promotions
-          image: promotions:1.2
+          image: promotions:latest
           imagePullPolicy: Never
           ports:
             - containerPort: 8080
