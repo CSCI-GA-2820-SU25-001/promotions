@@ -148,46 +148,51 @@ $(function () {
     // Search for a Promotion
     // ****************************************
     $("#search-btn").click(function () {
-        let type = $("#promotion_type").val();
-        let queryString = "";
+    let type = $("#promotion_type").val().trim();  // 加了 trim 防止空格
+    let queryString = "";
 
-        if (type) {
-            queryString += 'type=' + type;
+    if (type) {
+        queryString = `type=${encodeURIComponent(type)}`;  // 更安全的拼接方式
+    }
+
+    $("#flash_message").empty();
+    $.ajax({
+        type: "GET",
+        url: `/api/promotions${queryString ? "?" + queryString : ""}`,  // 没有type就不要问号
+        contentType: "application/json"
+    }).done(function(res){
+        $("#search_results").empty();
+
+        let table = '<table class="table table-striped" cellpadding="10">';
+        table += '<thead><tr>';
+        table += '<th>ID</th><th>Name</th><th>Status</th><th>Start</th><th>End</th><th>Type</th><th>Product</th><th>Amount</th><th>Actions</th>';
+        table += '</tr></thead><tbody>';
+
+        let firstPromotion = "";
+        for (let i = 0; i < res.length; i++) {
+            let promo = res[i];
+            let statusText = promo.status ? "true" : "false";
+            let actionBtn = promo.status
+                ? `<button class="btn btn-warning btn-sm toggle-btn" data-id="${promo.id}" data-action="deactivate">Deactivate</button>`
+                : `<button class="btn btn-success btn-sm toggle-btn" data-id="${promo.id}" data-action="activate">Activate</button>`;
+
+            table += `<tr><td>${promo.id}</td><td>${promo.name}</td><td>${statusText}</td><td>${promo.start_date}</td><td>${promo.end_date}</td><td>${promo.promo_type}</td><td>${promo.product_id}</td><td>${promo.amount}</td><td>${actionBtn}</td></tr>`;
+
+            if (i === 0) {
+                firstPromotion = promo;
+            }
         }
 
-        $("#flash_message").empty();
-        $.ajax({
-            type: "GET",
-            url: `/api/promotions?${queryString}`,
-            contentType: "application/json"
-        }).done(function(res){
-            $("#search_results").empty();
-            let table = '<table class="table table-striped" cellpadding="10">'
-            table += '<thead><tr>'
-            table += '<th>ID</th><th>Name</th><th>Status</th><th>Start</th><th>End</th><th>Type</th><th>Product</th><th>Amount</th><th>Actions</th>'
-            table += '</tr></thead><tbody>'
-            let firstPromotion = "";
-            for (let i = 0; i < res.length; i++) {
-                let promo = res[i];
-                let statusText = promo.status ? "Active" : "Inactive";
-                let actionBtn = promo.status
-                    ? `<button class="btn btn-warning btn-sm toggle-btn" data-id="${promo.id}" data-action="deactivate">Deactivate</button>`
-                    : `<button class="btn btn-success btn-sm toggle-btn" data-id="${promo.id}" data-action="activate">Activate</button>`;
-                table += `<tr><td>${promo.id}</td><td>${promo.name}</td><td>${statusText}</td><td>${promo.start_date}</td><td>${promo.end_date}</td><td>${promo.promo_type}</td><td>${promo.product_id}</td><td>${promo.amount}</td><td>${actionBtn}</td></tr>`;
-                if (i === 0) {
-                    firstPromotion = promo;
-                }
-            }
-            table += '</tbody></table>';
-            $("#search_results").append(table);
-            if (firstPromotion !== "") {
-                update_form_data(firstPromotion);
-            }
-            flash_message("Search complete");
-        }).fail(function(res){
-            flash_message(res.responseJSON.message);
-        });
+        table += '</tbody></table>';
+        $("#search_results").append(table);
+
+        if (firstPromotion) {
+            update_form_data(firstPromotion);
+        }
+    }).fail(function(res){
+        flash_message(res.responseJSON.message);
     });
+});
 
     // ****************************************
     //  TOGGLE BUTTON HANDLER (ACTIVATE/DEACTIVATE)
@@ -202,7 +207,7 @@ $(function () {
             url: url
         }).done(function(){
             flash_message(`Promotion ${id} ${action}d`);
-            $("#search-btn").click();
+            //$("#search-btn").click();
         }).fail(function(res){
             flash_message(res.responseJSON.message);
         });
