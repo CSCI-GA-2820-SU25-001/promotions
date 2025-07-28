@@ -39,3 +39,36 @@ spec:
         echo "Current commit: $(git rev-parse HEAD)"
         echo "Files in workspace:"
         ls -la
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: lint
+spec:
+  description: Run linting checks on Python code
+  workspaces:
+    - name: source
+      description: The workspace containing the source code
+  steps:
+    - name: flake8-lint
+      image: python:3.11-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/bash
+        set -eu
+        
+        echo "Installing flake8 and pylint..."
+        pip install --upgrade pip
+        pip install flake8 pylint
+        
+        echo "Running flake8 linting..."
+        echo "Checking for syntax errors and undefined names..."
+        flake8 service tests --count --select=E9,F63,F7,F82 --show-source --statistics
+        
+        echo "Running full flake8 check..."
+        flake8 service tests --count --max-complexity=10 --max-line-length=127 --statistics
+        
+        echo "Running pylint..."
+        pylint service tests --max-line-length=127 || echo "Pylint completed with warnings"
+        
+        echo "Linting completed successfully!"

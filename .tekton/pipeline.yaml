@@ -1,9 +1,9 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: promotions-clone-pipeline
+  name: promotions-cd-pipeline
 spec:
-  description: Simple pipeline to clone the promotions repository
+  description: CD pipeline to clone and lint the promotions repository
   params:
     - name: repo-url
       type: string
@@ -28,3 +28,12 @@ spec:
           value: $(params.repo-url)
         - name: revision
           value: $(params.revision)
+    
+    - name: lint-code
+      taskRef:
+        name: lint
+      runAfter:
+        - fetch-source
+      workspaces:
+        - name: source
+          workspace: shared-data
