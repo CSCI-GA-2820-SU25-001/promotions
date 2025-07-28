@@ -149,3 +149,8 @@ class Promotion(db.Model):  # pylint: disable=too-many-instance-attributes
         """
         logger.info("Processing name query for %s ...", name)
         return cls.query.filter(cls.name == name).all()
+
+    @classmethod
+    def find_by_type(cls, promo_type):
+        """Returns all promotions that match the given type"""
+        return cls.query.filter_by(promo_type=promo_type).all()
