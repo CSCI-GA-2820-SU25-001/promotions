@@ -1,0 +1,30 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: promotions-clone-pipeline
+spec:
+  description: Simple pipeline to clone the promotions repository
+  params:
+    - name: repo-url
+      type: string
+      description: The git repository URL to clone from
+      default: "https://github.com/CSCI-GA-2820-SU25-001/promotions.git"
+    - name: revision
+      type: string
+      description: The git revision to checkout
+      default: "main"
+  workspaces:
+    - name: shared-data
+      description: Shared workspace for the pipeline
+  tasks:
+    - name: fetch-source
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: shared-data
+      params:
+        - name: url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.revision)
