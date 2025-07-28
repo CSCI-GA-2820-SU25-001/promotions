@@ -86,3 +86,129 @@ spec:
         echo "Running pytest..."
         pytest tests --maxfail=5 --disable-warnings --tb=short
         echo "Unit tests completed successfully!"
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-image
+spec:
+  description: Build and push Docker image using buildah
+  params:
+    - name: IMAGE_NAME
+      type: string
+      description: Name of the image to build
+      default: "promotions"
+    - name: IMAGE_TAG
+      type: string
+      description: Tag for the image
+      default: "latest"
+    - name: REGISTRY
+      type: string
+      description: Registry to push the image to
+      default: "image-registry.openshift-image-registry.svc:5000"
+    - name: DOCKERFILE
+      type: string
+      description: Path to the Dockerfile
+      default: "./Dockerfile"
+    - name: CONTEXT
+      type: string
+      description: Build context directory
+      default: "."
+    - name: TLSVERIFY
+      type: string
+      description: Verify the TLS on the registry endpoint
+      default: "true"
+  workspaces:
+    - name: source
+      description: The workspace containing the source code
+  steps:
+    - name: build-and-push
+      image: quay.io/buildah/stable:v1.23.1
+      workingDir: $(workspaces.source.path)
+      securityContext:
+        privileged: true
+      env:
+        - name: STORAGE_DRIVER
+          value: vfs
+      script: |
+        #!/bin/bash
+        set -eu
+        
+        # Build the image
+        echo "Building image $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
+        buildah --storage-driver=$(STORAGE_DRIVER) bud \
+          --format=oci \
+          --tls-verify=$(params.TLSVERIFY) \
+          --no-cache \
+          -f $(params.DOCKERFILE) \
+          -t $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG) \
+          $(params.CONTEXT)
+        
+        # Push the image
+        echo "Pushing image to registry..."
+        buildah --storage-driver=$(STORAGE_DRIVER) push \
+          --tls-verify=$(params.TLSVERIFY) \
+          $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG) \
+          docker://$(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)
+        
+        echo "Image successfully built and pushed!"
+        echo "Image: $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-image-kaniko
+spec:
+  description: Build and push Docker image using Kaniko (no privileged access needed)
+  params:
+    - name: IMAGE_NAME
+      type: string
+      description: Name of the image to build
+      default: "promotions"
+    - name: IMAGE_TAG
+      type: string
+      description: Tag for the image
+      default: "latest"
+    - name: REGISTRY
+      type: string
+      description: Registry to push the image to
+      default: "image-registry.openshift-image-registry.svc:5000"
+    - name: DOCKERFILE
+      type: string
+      description: Path to the Dockerfile
+      default: "./Dockerfile"
+    - name: CONTEXT
+      type: string
+      description: Build context directory
+      default: "."
+  workspaces:
+    - name: source
+      description: The workspace containing the source code
+    - name: dockerconfig
+      description: An optional workspace that allows providing a .docker/config.json file
+      optional: true
+  steps:
+    - name: build-and-push
+      image: gcr.io/kaniko-project/executor:v1.9.0-debug
+      workingDir: $(workspaces.source.path)
+      env:
+        - name: DOCKER_CONFIG
+          value: $(workspaces.dockerconfig.path)
+      script: |
+        #!/busybox/sh
+        set -e
+        
+        echo "Building and pushing image with Kaniko..."
+        echo "Context: $(params.CONTEXT)"
+        echo "Dockerfile: $(params.DOCKERFILE)"
+        echo "Destination: $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
+        
+        /kaniko/executor \
+          --dockerfile=$(params.DOCKERFILE) \
+          --context=$(workspaces.source.path)/$(params.CONTEXT) \
+          --destination=$(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG) \
+          --skip-tls-verify \
+          --cache=true
+        
+        echo "Image successfully built and pushed with Kaniko!"
+        echo "Image: $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"

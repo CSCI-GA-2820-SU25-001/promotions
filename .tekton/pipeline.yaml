@@ -3,7 +3,7 @@ kind: Pipeline
 metadata:
   name: promotions-cd-pipeline
 spec:
-  description: CD pipeline to clone, lint, and test the promotions repository
+  description: CD pipeline to clone, lint, test, and build the promotions repository
   params:
     - name: repo-url
       type: string
@@ -13,6 +13,18 @@ spec:
       type: string
       description: The git revision to checkout
       default: "main"
+    - name: image-name
+      type: string
+      description: Name of the image to build
+      default: "promotions"
+    - name: image-tag
+      type: string
+      description: Tag for the image (will use commit SHA if available)
+      default: "latest"
+    - name: registry
+      type: string
+      description: Registry to push the image to
+      default: "image-registry.openshift-image-registry.svc:5000"
   workspaces:
     - name: shared-data
       description: Shared workspace for the pipeline
@@ -46,3 +58,19 @@ spec:
       workspaces:
         - name: source
           workspace: shared-data
+
+    - name: build-and-push-image
+      taskRef:
+        name: build-image-kaniko
+      runAfter:
+        - run-unit-tests
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: IMAGE_NAME
+          value: $(params.image-name)
+        - name: IMAGE_TAG
+          value: $(params.image-tag)
+        - name: REGISTRY
+          value: $(params.registry)
