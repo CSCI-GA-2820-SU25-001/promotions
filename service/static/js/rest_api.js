@@ -145,54 +145,54 @@ $(function () {
     });
 
     // ****************************************
-    // Search for a Promotion
+    // Search for a Promotion by Type
     // ****************************************
     $("#search-btn").click(function () {
-    let type = $("#promotion_type").val().trim();  // 加了 trim 防止空格
-    let queryString = "";
+        let type = $("#promotion_type").val().trim();
+        let queryString = type ? `?type=${encodeURIComponent(type)}` : "";
 
-    if (type) {
-        queryString = `type=${encodeURIComponent(type)}`;  // 更安全的拼接方式
-    }
+        $("#flash_message").empty();
+        $("#search_results tbody").empty(); // ✅ FIXED: just clear existing rows
+        clear_form_data();
 
-    $("#flash_message").empty();
-    $.ajax({
-        type: "GET",
-        url: `/api/promotions${queryString ? "?" + queryString : ""}`,  // 没有type就不要问号
-        contentType: "application/json"
-    }).done(function(res){
-        $("#search_results").empty();
-
-        let table = '<table class="table table-striped" cellpadding="10">';
-        table += '<thead><tr>';
-        table += '<th>ID</th><th>Name</th><th>Status</th><th>Start</th><th>End</th><th>Type</th><th>Product</th><th>Amount</th><th>Actions</th>';
-        table += '</tr></thead><tbody>';
-
-        let firstPromotion = "";
-        for (let i = 0; i < res.length; i++) {
-            let promo = res[i];
-            let statusText = promo.status ? "true" : "false";
-            let actionBtn = promo.status
-                ? `<button class="btn btn-warning btn-sm toggle-btn" data-id="${promo.id}" data-action="deactivate">Deactivate</button>`
-                : `<button class="btn btn-success btn-sm toggle-btn" data-id="${promo.id}" data-action="activate">Activate</button>`;
-
-            table += `<tr><td>${promo.id}</td><td>${promo.name}</td><td>${statusText}</td><td>${promo.start_date}</td><td>${promo.end_date}</td><td>${promo.promo_type}</td><td>${promo.product_id}</td><td>${promo.amount}</td><td>${actionBtn}</td></tr>`;
-
-            if (i === 0) {
-                firstPromotion = promo;
+        $.ajax({
+            type: "GET",
+            url: `/api/promotions${queryString}`,
+            contentType: "application/json"
+        }).done(function(res){
+            if (!res || res.length === 0) {
+                flash_message("No promotions found");
+                return;
             }
-        }
 
-        table += '</tbody></table>';
-        $("#search_results").append(table);
+            const tbody = $("#search_results tbody");
 
-        if (firstPromotion) {
-            update_form_data(firstPromotion);
-        }
-    }).fail(function(res){
-        flash_message(res.responseJSON.message);
+            res.forEach((promo, index) => {
+                const actionBtn = promo.status
+                    ? `<button class="btn btn-warning btn-sm toggle-btn" data-id="${promo.id}" data-action="deactivate">Deactivate</button>`
+                    : `<button class="btn btn-success btn-sm toggle-btn" data-id="${promo.id}" data-action="activate">Activate</button>`;
+
+                const row = `
+                    <tr${index === 0 ? ' class="info"' : ''}>
+                        <td>${promo.id}</td>
+                        <td>${promo.name}</td>
+                        <td>${promo.status}</td>
+                        <td>${promo.start_date || ""}</td>
+                        <td>${promo.end_date || ""}</td>
+                        <td>${promo.promo_type}</td>
+                        <td>${promo.product_id}</td>
+                        <td>${promo.amount}</td>
+                        <td>${actionBtn}</td>
+                    </tr>`;
+                tbody.append(row);
+            });
+
+            update_form_data(res[0]);
+            flash_message(`Found ${res.length} promotion(s)`);
+        }).fail(function(res){
+            flash_message(res.responseJSON?.message || "Search failed");
+        });
     });
-});
 
     // ****************************************
     //  TOGGLE BUTTON HANDLER (ACTIVATE/DEACTIVATE)
@@ -207,7 +207,6 @@ $(function () {
             url: url
         }).done(function(){
             flash_message(`Promotion ${id} ${action}d`);
-            //$("#search-btn").click();
         }).fail(function(res){
             flash_message(res.responseJSON.message);
         });

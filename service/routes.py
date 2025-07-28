@@ -127,14 +127,12 @@ class PromotionCollection(Resource):
         app.logger.info("Request to list promotions")
 
         promotion_id = request.args.get("id")
-
         if promotion_id:
             app.logger.info("Filtering promotions by id=%s", promotion_id)
             try:
                 promotion = Promotion.find(int(promotion_id))
             except ValueError:
                 ns.abort(status.HTTP_400_BAD_REQUEST, "ID must be an integer.")
-
             if not promotion:
                 ns.abort(
                     status.HTTP_404_NOT_FOUND,
@@ -142,8 +140,13 @@ class PromotionCollection(Resource):
                 )
             return [promotion.serialize()], status.HTTP_200_OK
 
-        # If no filter, return all
-        promotions = Promotion.all()
+        promo_type = request.args.get("type")
+        if promo_type:
+            app.logger.info("Filtering promotions by type=%s", promo_type)
+            promotions = Promotion.find_by_type(promo_type)
+        else:
+            promotions = Promotion.all()
+
         results = [p.serialize() for p in promotions]
         return results, status.HTTP_200_OK
 
