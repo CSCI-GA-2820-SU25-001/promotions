@@ -3,7 +3,7 @@ kind: Pipeline
 metadata:
   name: promotions-cd-pipeline
 spec:
-  description: CD pipeline to clone and lint the promotions repository
+  description: CD pipeline to clone, lint, and test the promotions repository
   params:
     - name: repo-url
       type: string
@@ -28,12 +28,21 @@ spec:
           value: $(params.repo-url)
         - name: revision
           value: $(params.revision)
-    
+
     - name: lint-code
       taskRef:
         name: lint
       runAfter:
         - fetch-source
+      workspaces:
+        - name: source
+          workspace: shared-data
+
+    - name: run-unit-tests
+      taskRef:
+        name: unit-tests
+      runAfter:
+        - lint-code
       workspaces:
         - name: source
           workspace: shared-data

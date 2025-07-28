@@ -1,5 +1,5 @@
 apiVersion: tekton.dev/v1beta1
-kind: Task
+kind: Task 
 metadata:
   name: git-clone
 spec:
@@ -22,22 +22,14 @@ spec:
       script: |
         #!/bin/sh
         set -eu
-        
+
         echo "Cloning $(params.url) at revision $(params.revision)"
-        
-        # Clean the workspace
         rm -rf .git
         rm -rf *
-        
-        # Clone the repository
         git clone $(params.url) .
-        
-        # Checkout the specified revision
         git checkout $(params.revision)
-        
         echo "Successfully cloned repository"
         echo "Current commit: $(git rev-parse HEAD)"
-        echo "Files in workspace:"
         ls -la
 ---
 apiVersion: tekton.dev/v1beta1
@@ -56,19 +48,41 @@ spec:
       script: |
         #!/bin/bash
         set -eu
-        
         echo "Installing flake8 and pylint..."
         pip install --upgrade pip
         pip install flake8 pylint
-        
-        echo "Running flake8 linting..."
-        echo "Checking for syntax errors and undefined names..."
+        echo "Running flake8 syntax checks..."
         flake8 service tests --count --select=E9,F63,F7,F82 --show-source --statistics
-        
         echo "Running full flake8 check..."
         flake8 service tests --count --max-complexity=10 --max-line-length=127 --statistics
-        
         echo "Running pylint..."
         pylint service tests --max-line-length=127 || echo "Pylint completed with warnings"
-        
         echo "Linting completed successfully!"
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: unit-tests
+spec:
+  description: Run unit tests using pytest
+  workspaces:
+    - name: source
+      description: The workspace containing the source code
+  steps:
+    - name: run-tests
+      image: python:3.11-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/bash
+        set -eu
+        echo "Installing dependencies..."
+        pip install --upgrade pip
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        else
+          echo "requirements.txt not found, installing pytest only"
+          pip install pytest
+        fi
+        echo "Running pytest..."
+        pytest tests --maxfail=5 --disable-warnings --tb=short
+        echo "Unit tests completed successfully!"
