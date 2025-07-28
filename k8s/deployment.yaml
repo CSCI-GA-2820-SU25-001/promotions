@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
         - name: promotions
-          image: promotions:latest
-          imagePullPolicy: Never
+          image: cluster-registry:5000/promotions:1.0
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:
