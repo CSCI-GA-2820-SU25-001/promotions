@@ -212,3 +212,142 @@ spec:
         
         echo "Image successfully built and pushed with Kaniko!"
         echo "Image: $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: deploy-to-openshift
+spec:
+  description: Deploy application to OpenShift using kubectl and k8s manifests
+  params:
+    - name: IMAGE_NAME
+      type: string
+      description: Name of the image to deploy
+      default: "promotions"
+    - name: IMAGE_TAG
+      type: string
+      description: Tag of the image to deploy
+      default: "latest"
+    - name: REGISTRY
+      type: string
+      description: Registry where the image is stored
+      default: "image-registry.openshift-image-registry.svc:5000"
+    - name: NAMESPACE
+      type: string
+      description: Target namespace for deployment
+      default: "default"
+    - name: MANIFESTS_DIR
+      type: string
+      description: Directory containing k8s manifests
+      default: "k8s"
+  workspaces:
+    - name: source
+      description: The workspace containing the source code and k8s manifests
+  steps:
+    - name: update-image-tag
+      image: alpine:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/sh
+        set -eu
+        
+        echo "Updating deployment image tag..."
+        apk add --no-cache sed
+        
+        # Update the image tag in deployment.yaml
+        FULL_IMAGE="$(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
+        echo "Setting image to: $FULL_IMAGE"
+        
+        sed -i "s|image: .*|image: $FULL_IMAGE|g" $(params.MANIFESTS_DIR)/deployment.yaml
+        
+        echo "Updated deployment.yaml:"
+        cat $(params.MANIFESTS_DIR)/deployment.yaml
+        
+    - name: deploy-postgres
+      image: quay.io/openshift/origin-cli:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/bash
+        set -eu
+        
+        echo "Deploying PostgreSQL database..."
+        
+        # Apply PostgreSQL secret and deployment
+        kubectl apply -f $(params.MANIFESTS_DIR)/postgres/secret.yaml -n $(params.NAMESPACE)
+        kubectl apply -f $(params.MANIFESTS_DIR)/postgres/postgres.yaml -n $(params.NAMESPACE)
+        
+        echo "PostgreSQL deployment initiated"
+        
+    - name: deploy-application
+      image: quay.io/openshift/origin-cli:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/bash
+        set -eu
+        
+        echo "Deploying application to namespace: $(params.NAMESPACE)"
+        
+        # Apply k8s manifests
+        kubectl apply -f $(params.MANIFESTS_DIR)/deployment.yaml -n $(params.NAMESPACE)
+        kubectl apply -f $(params.MANIFESTS_DIR)/service.yaml -n $(params.NAMESPACE)
+        kubectl apply -f $(params.MANIFESTS_DIR)/ingress.yaml -n $(params.NAMESPACE)
+        
+        echo "Application manifests applied successfully"
+        
+    - name: verify-deployment
+      image: quay.io/openshift/origin-cli:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/bash
+        set -eu
+        
+        echo "Verifying deployment..."
+        
+        # Check if namespace exists, create if not
+        if ! kubectl get namespace $(params.NAMESPACE) >/dev/null 2>&1; then
+            echo "Creating namespace: $(params.NAMESPACE)"
+            kubectl create namespace $(params.NAMESPACE)
+        fi
+        
+        # Wait for PostgreSQL to be ready first
+        echo "Waiting for PostgreSQL to be ready..."
+        kubectl wait --for=condition=ready --timeout=300s pod -l app=postgres -n $(params.NAMESPACE) || echo "PostgreSQL pods not ready yet"
+        
+        # Wait for deployment to be ready
+        echo "Waiting for application deployment to be ready (timeout: 300s)..."
+        kubectl wait --for=condition=available --timeout=300s deployment/$(params.IMAGE_NAME) -n $(params.NAMESPACE)
+        
+        # Check pod status
+        echo "Current pod status:"
+        kubectl get pods -l app=$(params.IMAGE_NAME) -n $(params.NAMESPACE)
+        
+        # Check service
+        echo "Service status:"
+        kubectl get service $(params.IMAGE_NAME) -n $(params.NAMESPACE)
+        
+        # Check ingress
+        echo "Ingress status:"
+        kubectl get ingress $(params.IMAGE_NAME) -n $(params.NAMESPACE) || echo "Ingress not found"
+        
+        # Check deployment rollout status
+        kubectl rollout status deployment/$(params.IMAGE_NAME) -n $(params.NAMESPACE)
+        
+        # Test application health if health endpoint exists
+        APP_POD=$(kubectl get pods -l app=$(params.IMAGE_NAME) -n $(params.NAMESPACE) -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        if [ -n "$APP_POD" ]; then
+            echo "Testing application health..."
+            kubectl exec $APP_POD -n $(params.NAMESPACE) -- curl -f http://localhost:8080/health 2>/dev/null || echo "Health endpoint not available or failed"
+            
+            echo "Application logs (last 10 lines):"
+            kubectl logs $APP_POD -n $(params.NAMESPACE) --tail=10 || echo "Could not retrieve logs"
+        fi
+        
+        echo "Deployment verification completed successfully!"
+        echo "Application should be accessible through the ingress endpoint"
+        
+        # Display access information
+        echo "=== Access Information ==="
+        echo "Namespace: $(params.NAMESPACE)"
+        echo "Service: $(params.IMAGE_NAME)"
+        echo "Image: $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
+        kubectl get ingress $(params.IMAGE_NAME) -n $(params.NAMESPACE) -o jsonpath='{.spec.rules[0].host}' 2>/dev/null && echo " (Ingress Host)" || echo "Access via service port-forward or ingress configuration"

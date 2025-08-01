@@ -1,0 +1,24 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: promotions-cd-run-
+spec:
+  pipelineRef:
+    name: promotions-cd-pipeline
+  params:
+    - name: repo-url
+      value: "https://github.com/CSCI-GA-2820-SU25-001/promotions.git"
+    - name: revision
+      value: "tekton-c"  # Current branch
+    - name: image-name
+      value: "promotions"
+    - name: image-tag
+      value: "latest"
+    - name: registry
+      value: "image-registry.openshift-image-registry.svc:5000"
+    - name: namespace
+      value: "default"  # Change this to your target namespace
+  workspaces:
+    - name: shared-data
+      persistentVolumeClaim:
+        claimName: tekton-workspace-pvc

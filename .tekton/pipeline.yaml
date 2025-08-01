@@ -25,6 +25,10 @@ spec:
       type: string
       description: Registry to push the image to
       default: "image-registry.openshift-image-registry.svc:5000"
+    - name: namespace
+      type: string
+      description: Target namespace for deployment
+      default: "default"
   workspaces:
     - name: shared-data
       description: Shared workspace for the pipeline
@@ -74,3 +78,21 @@ spec:
           value: $(params.image-tag)
         - name: REGISTRY
           value: $(params.registry)
+
+    - name: deploy-to-openshift
+      taskRef:
+        name: deploy-to-openshift
+      runAfter:
+        - build-and-push-image
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: IMAGE_NAME
+          value: $(params.image-name)
+        - name: IMAGE_TAG
+          value: $(params.image-tag)
+        - name: REGISTRY
+          value: $(params.registry)
+        - name: NAMESPACE
+          value: $(params.namespace)
