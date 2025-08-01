@@ -5,11 +5,13 @@ import time
 # Dictionary to store saved IDs
 saved_ids = {}
 
+
 @given('I visit the "{page_name}"')
 @when('I visit the "{page_name}"')
 def step_visit_page(context, page_name):
     context.driver.get(context.base_url)
     time.sleep(1)
+
 
 @when('I set the "{field}" to "{value}"')
 def step_set_field(context, field, value):
@@ -20,7 +22,7 @@ def step_set_field(context, field, value):
         "Amount": "promotion_amount",
         "Start Date": "promotion_start_date",
         "End Date": "promotion_end_date",
-        "Status": "promotion_status"
+        "Status": "promotion_status",
     }
     elem_id = field_map.get(field, None)
     if not elem_id:
@@ -29,19 +31,18 @@ def step_set_field(context, field, value):
     element.clear()
     element.send_keys(value)
 
+
 @when('I select "{value}" for "{field}"')
 def step_select_dropdown(context, value, field):
     from selenium.webdriver.support.ui import Select
 
-    field_map = {
-        "Type": "promotion_type",
-        "Status": "promotion_status"
-    }
+    field_map = {"Type": "promotion_type", "Status": "promotion_status"}
     elem_id = field_map.get(field, None)
     if not elem_id:
         raise Exception(f"Unknown select field: {field}")
     select = Select(context.driver.find_element(By.ID, elem_id))
     select.select_by_visible_text(value)
+
 
 @when('I press the "{button}" button')
 def step_press_button(context, button):
@@ -51,7 +52,7 @@ def step_press_button(context, button):
         "Clear": "clear-btn",
         "Update": "update-btn",
         "Delete": "delete-btn",
-        "Retrieve": "retrieve-btn"
+        "Retrieve": "retrieve-btn",
     }
     btn_id = button_id_map.get(button, None)
     if not btn_id:
@@ -59,16 +60,18 @@ def step_press_button(context, button):
     context.driver.find_element(By.ID, btn_id).click()
     time.sleep(1)
 
+
 @when('I save the ID for "{name}" as "{var_name}"')
 def step_save_id(context, name, var_name):
     rows = context.driver.find_elements(By.CSS_SELECTOR, "#search_results tbody tr")
     for row in rows:
         cols = row.find_elements(By.TAG_NAME, "td")
-        print("DEBUG ROW:", [col.text.strip() for col in cols]) 
+        print("DEBUG ROW:", [col.text.strip() for col in cols])
         if cols[1].text.strip() == name:
             saved_ids[var_name] = cols[0].text.strip()
             return
-    raise Exception(f"Promotion with name '{name}' not found.") 
+    raise Exception(f"Promotion with name '{name}' not found.")
+
 
 @when('I set the "Promotion ID" to the saved ID "{var_name}"')
 def step_set_saved_id(context, var_name):
@@ -79,6 +82,7 @@ def step_set_saved_id(context, var_name):
     element = context.driver.find_element(By.ID, "promotion_id")
     element.clear()
     element.send_keys(promotion_id)
+
 
 @when('I press the action button for the saved ID "{var_name}"')
 def step_click_action_button(context, var_name):
@@ -96,6 +100,7 @@ def step_click_action_button(context, var_name):
             return
     raise Exception(f"Row with ID '{promotion_id}' not found in search results.")
 
+
 @then('I should see "{expected}" in the "{field}" field')
 def step_should_see_in_field(context, expected, field):
     field_map = {
@@ -105,7 +110,7 @@ def step_should_see_in_field(context, expected, field):
         "Type": "promotion_type",
         "Start Date": "promotion_start_date",
         "End Date": "promotion_end_date",
-        "Status": "promotion_status"
+        "Status": "promotion_status",
     }
     elem_id = field_map.get(field, None)
     if not elem_id:
@@ -114,17 +119,16 @@ def step_should_see_in_field(context, expected, field):
     value = element.get_attribute("value")
     assert expected == value, f"Expected '{expected}' in '{field}', but got '{value}'"
 
+
 @then('the "{field}" field should be empty')
 def step_field_should_be_empty(context, field):
-    field_map = {
-        "Name": "promotion_name",
-        "Type": "promotion_type"
-    }
+    field_map = {"Name": "promotion_name", "Type": "promotion_type"}
     elem_id = field_map.get(field, None)
     if not elem_id:
         raise Exception(f"Unknown field: {field}")
     value = context.driver.find_element(By.ID, elem_id).get_attribute("value")
     assert value == "", f"Expected '{field}' field to be empty, but got '{value}'"
+
 
 @then('I should see "{text}" in the results')
 def step_see_in_results(context, text):
@@ -134,4 +138,3 @@ def step_see_in_results(context, text):
         if text in row.text:
             return
     raise AssertionError(f"'{text}' not found in search results")
-
