@@ -6,3 +6,4 @@ flask-restx
 flask-sqlalchemy
 factory_boy
 click
+psycopg[binary]
