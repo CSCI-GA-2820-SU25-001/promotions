@@ -1,0 +1,9 @@
+pytest
+pytest-pspec
+pytest-cov
+flask
+flask-restx
+flask-sqlalchemy
+factory_boy
+click
+psycopg[binary]
