@@ -1,0 +1,14 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: promotions
+  labels:
+    app: promotions
+spec:
+  to:
+    kind: Service
+    name: promotions
+    weight: 100
+  port:
+    targetPort: 8080
+  wildcardPolicy: None

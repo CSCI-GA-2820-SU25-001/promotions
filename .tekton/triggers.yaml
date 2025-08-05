@@ -1,0 +1,81 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: cd-pipeline-binding
+spec:
+  params:
+    - name: git-repo-url
+      value: $(body.repository.clone_url)
+    - name: git-revision
+      value: $(body.head_commit.id)
+    - name: git-repo-name
+      value: $(body.repository.name)
+
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: cd-pipeline-template
+spec:
+  params:
+    - name: git-repo-url
+      description: The git repository url
+    - name: git-revision
+      description: The git revision
+      default: master
+    - name: git-repo-name
+      description: The name of the deployment to be created / patched
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: cd-pipeline-run-
+      spec:
+        pipelineRef:
+          name: cd-pipeline
+        workspaces:
+          - name: shared-workspace
+            persistentVolumeClaim:
+              claimName: pipeline-workspace
+        params:
+          - name: repo-url
+            value: $(tt.params.git-repo-url)
+          - name: branch
+            value: $(tt.params.git-revision)
+          - name: image-name
+            value: $(tt.params.git-repo-name)
+          - name: image-tag
+            value: $(tt.params.git-revision)
+          - name: deployment-name
+            value: $(tt.params.git-repo-name)
+          - name: service-url
+            value: "http://promotions.$(context.pipelineRun.namespace).svc.cluster.local"
+
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: Trigger
+metadata:
+  name: cd-pipeline-trigger
+spec:
+  serviceAccountName: pipeline
+  bindings:
+    - ref: cd-pipeline-binding
+  template:
+    ref: cd-pipeline-template
+  interceptors:
+    - name: "only-on-master"
+      ref:
+        name: "cel"
+      params:
+        - name: "filter"
+          value: "body.ref == 'refs/heads/master'"
+
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: cd-pipeline-listener
+spec:
+  serviceAccountName: pipeline
+  triggers:
+    - triggerRef: cd-pipeline-trigger

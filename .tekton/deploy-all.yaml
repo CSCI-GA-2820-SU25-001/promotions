@@ -1,3 +1,21 @@
+# Complete Tekton CD Pipeline Deployment
+# Apply this file to set up the entire pipeline infrastructure
+
+---
+# Workspace PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pipeline-workspace
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# Service Account
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -6,12 +24,12 @@ secrets:
   - name: kube-api-secret
 
 ---
+# ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: pipeline-role
 rules:
-  # EventListener needs to fetch all namespaced resources
   - apiGroups: [""]
     resources: ["configmaps", "secrets", "events", "serviceaccounts", "services"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
@@ -32,6 +50,7 @@ rules:
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
 
 ---
+# ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -43,9 +62,10 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: pipeline
-    namespace: default  # Change this to your actual namespace
+    namespace: default  # Update this to your namespace
 
 ---
+# Secret
 apiVersion: v1
 kind: Secret
 metadata:

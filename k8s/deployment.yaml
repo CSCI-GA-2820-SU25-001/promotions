@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: promotions
-          image: cluster-registry:5000/promotions:1.0
+          image: image-registry.openshift-image-registry.svc:5000/default/promotions:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

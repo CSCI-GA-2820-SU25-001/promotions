@@ -1,231 +1,183 @@
-# Tekton CD Pipeline for OpenShift Deployment
+# Tekton CD Pipeline for Promotions Service
 
-This directory contains Tekton pipelines and tasks for continuous deployment of the Promotions application to OpenShift/Kubernetes.
+This directory contains the Tekton pipeline configuration for implementing a complete Continuous Deployment (CD) pipeline that automatically deploys the promotions service to OpenShift when changes are pushed to the master branch.
 
-## Overview
+## Pipeline Overview
 
-The CD pipeline performs the following steps:
-1. **Clone** - Fetch source code from Git repository
-2. **Lint** - Run code quality checks with flake8 and pylint
-3. **Test** - Execute unit tests with pytest
-4. **Build** - Build and push Docker image using Kaniko
-5. **Deploy** - Deploy application to OpenShift cluster
+The pipeline consists of 6 main tasks:
 
-## Files
+1. **Clone Repository** - Uses the git-clone ClusterTask to fetch the source code
+2. **Lint Code** - Runs flake8 linting on the service code
+3. **Unit Tests** - Runs pytest with coverage reporting
+4. **Build Image** - Uses buildah-1-19-0 to build and push Docker image
+5. **Deploy** - Updates the Kubernetes deployment with the new image
+6. **BDD Tests** - Runs Behave tests against the deployed service
 
-### Core Pipeline Components
-- `tasks.yaml` - Individual Tekton Tasks definitions
-- `pipeline.yaml` - Main CD Pipeline definition
-- `workspace.yaml` - Workspace and PVC definitions
-- `pipelinerun-template.yaml` - Template for running the pipeline
+## Files Description
 
-### Triggers (Automated Pipeline Execution)
-- `event-listener.yaml` - EventListener for GitHub webhooks
-- `trigger-binding.yaml` - TriggerBinding to extract webhook parameters
-- `trigger-template.yaml` - TriggerTemplate to create PipelineRuns
-- `github-webhook-secret.yaml` - Secret for webhook payload verification
-- `rbac.yaml` - ServiceAccount and permissions for triggers
-- `deploy-triggers.sh` - Script to deploy all trigger components
+- `workspace.yaml` - PersistentVolumeClaim for shared workspace storage
+- `tasks.yaml` - Custom task definitions (flake8-lint, pytest-env, behave, deploy-image)
+- `pipeline.yaml` - Main pipeline definition with all 6 tasks
+- `triggers.yaml` - EventListener, TriggerBinding, and TriggerTemplate for webhook integration
+- `rbac.yaml` - ServiceAccount and permissions for pipeline execution
+- `pipelinerun-example.yaml` - Example PipelineRun for manual testing
+- `README.md` - This documentation file
 
-### Utilities
-- `deploy-verify.sh` - Manual deployment verification script
-- `TRIGGERS_README.md` - Detailed triggers setup and usage guide
+## Setup Instructions
 
-## Usage
+### 1. Prerequisites
 
-### Prerequisites
+Ensure you have:
+- OpenShift cluster with Tekton Pipelines installed
+- Tekton Triggers installed
+- kubectl/oc CLI access to the cluster
 
-1. Tekton Pipelines installed in your OpenShift cluster
-2. Necessary RBAC permissions for service accounts
-3. Access to image registry (OpenShift internal registry or external)
+### 2. Install ClusterTasks
 
-### Apply Tekton Resources
+Install the required ClusterTasks from Tekton Hub:
 
 ```bash
-# Apply workspace and PVC
-kubectl apply -f .tekton/workspace.yaml
+# Install git-clone ClusterTask
+oc apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/git-clone/0.9/git-clone.yaml
 
-# Apply tasks
-kubectl apply -f .tekton/tasks.yaml
-
-# Apply pipeline
-kubectl apply -f .tekton/pipeline.yaml
+# Install buildah-1-19-0 ClusterTask
+oc apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/buildah/0.6/buildah.yaml
 ```
 
-### Run the Pipeline
+### 3. Deploy Pipeline Components
 
-#### Option 1: Automatic Triggers (Recommended)
-Set up automated pipeline execution on GitHub pushes to master:
+Apply all the Tekton resources:
 
 ```bash
-# Deploy all trigger components
-./deploy-triggers.sh
-
-# Update webhook secret with your GitHub token
-kubectl patch secret github-webhook-secret -p '{"stringData":{"secretToken":"your-secret-token"}}'
-
-# Get EventListener URL for GitHub webhook configuration
-kubectl get svc el-promotions-github-listener
+# Apply in order
+oc apply -f workspace.yaml
+oc apply -f rbac.yaml
+oc apply -f tasks.yaml
+oc apply -f pipeline.yaml
+oc apply -f triggers.yaml
 ```
 
-Then configure your GitHub repository webhook:
-- Payload URL: `http://<eventlistener-url>:8080`
-- Content type: `application/json`
-- Secret: Your secret token
-- Events: Just the push event
+### 4. Deploy Application Infrastructure
 
-See `TRIGGERS_README.md` for detailed setup instructions.
+Deploy PostgreSQL and the application:
 
-#### Option 2: Manual Execution (Using template)
 ```bash
-# Edit pipelinerun-template.yaml with your parameters
-kubectl apply -f .tekton/pipelinerun-template.yaml
+# Deploy PostgreSQL
+oc apply -f ../k8s/postgres/
+
+# Deploy the application
+oc apply -f ../k8s/
 ```
 
-#### Option 3: Manual Execution (Using tkn CLI)
+### 5. Set up Route for BDD Tests
+
+Update the service-url parameter in your PipelineRuns to match your actual route:
+
 ```bash
-tkn pipeline start promotions-cd-pipeline \
-  --param repo-url="https://github.com/CSCI-GA-2820-SU25-001/promotions.git" \
-  --param revision="main" \
-  --param image-name="promotions" \
-  --param image-tag="v1.0.0" \
-  --param registry="image-registry.openshift-image-registry.svc:5000" \
-  --param namespace="promotions-prod" \
-  --workspace name=shared-data,claimName=tekton-workspace-pvc
+# Get your route URL
+oc get route promotions -o jsonpath='{.spec.host}'
 ```
 
-### Monitor Pipeline Execution
+### 6. Create Webhook (Admin Required)
+
+Create a webhook in your GitHub repository:
+
+1. Go to your GitHub repository settings
+2. Navigate to Webhooks
+3. Add a new webhook with:
+   - **Payload URL**: `http://el-cd-pipeline-listener-<namespace>.apps.<cluster-domain>/`
+   - **Content type**: `application/json`
+   - **Events**: Just the push event
+   - **Branch filter**: `master` branch only
+
+## Manual Pipeline Execution
+
+To manually trigger the pipeline:
+
+```bash
+# Update the repo-url and service-url in pipelinerun-example.yaml first
+oc create -f pipelinerun-example.yaml
+```
+
+Monitor the pipeline run:
 
 ```bash
 # List pipeline runs
-tkn pipelinerun list
+oc get pipelineruns
 
-# Follow logs of a specific run
-tkn pipelinerun logs <pipelinerun-name> -f
-
-# Get pipeline run status
-kubectl get pipelinerun
+# View logs
+oc logs -f <pipelinerun-name>
 ```
 
-## Tasks Description
+## Troubleshooting
 
-### git-clone
-Clones the Git repository to the shared workspace.
+### Common Issues
 
-**Parameters:**
-- `url`: Repository URL
-- `revision`: Git revision (branch, tag, SHA)
+1. **BuildAh Task Fails**: Ensure you're using `buildah-1-19-0` instead of the default buildah task
+2. **Permission Errors**: Verify the RBAC configuration is applied correctly
+3. **Webhook Not Triggering**: Check that the EventListener service is running and accessible
+4. **BDD Tests Fail**: Ensure the service-url parameter points to the correct route
 
-### lint
-Runs Python code quality checks using flake8 and pylint.
-
-### unit-tests
-Executes unit tests using pytest.
-
-### build-image-kaniko
-Builds and pushes Docker image using Kaniko (no privileged access required).
-
-**Parameters:**
-- `IMAGE_NAME`: Name of the image
-- `IMAGE_TAG`: Image tag
-- `REGISTRY`: Registry URL
-- `DOCKERFILE`: Path to Dockerfile
-- `CONTEXT`: Build context directory
-
-### deploy-to-openshift
-Deploys the application to OpenShift/Kubernetes cluster.
-
-**Parameters:**
-- `IMAGE_NAME`: Application name
-- `IMAGE_TAG`: Image tag to deploy
-- `REGISTRY`: Registry where image is stored
-- `NAMESPACE`: Target namespace
-- `MANIFESTS_DIR`: Directory containing k8s manifests
-
-**Steps:**
-1. Updates deployment manifest with new image tag
-2. Deploys PostgreSQL database (StatefulSet + Service)
-3. Deploys application (Deployment + Service + Ingress)
-4. Verifies deployment status and health
-
-## Deployment Verification
-
-Use the provided script to manually verify deployment:
+### Checking Pipeline Status
 
 ```bash
-# Basic verification
-./.tekton/deploy-verify.sh
+# Check all pipeline components
+oc get pipeline,pipelinerun,task,taskrun
 
-# Specify namespace and app name
-./.tekton/deploy-verify.sh my-namespace promotions
+# Check EventListener
+oc get eventlistener
+
+# Check triggers
+oc get triggerbinding,triggertemplate,trigger
+```
+
+### Viewing Logs
+
+```bash
+# View EventListener logs
+oc logs -l eventlistener=cd-pipeline-listener
+
+# View pipeline run logs
+tkn pipelinerun logs <pipelinerun-name> -f
 ```
 
 ## Customization
 
-### Parameters
-You can customize the pipeline behavior by modifying parameters in `pipelinerun-template.yaml`:
+### Adding New Tasks
 
-- `repo-url`: Git repository URL
-- `revision`: Branch or tag to build
-- `image-name`: Application name
-- `image-tag`: Docker image tag
-- `registry`: Container registry URL
-- `namespace`: Kubernetes namespace for deployment
+1. Add your task definition to `tasks.yaml`
+2. Add the task to the pipeline in `pipeline.yaml`
+3. Update runAfter dependencies as needed
 
-### Manifests
-The deployment task applies Kubernetes manifests from the `k8s/` directory:
-- `k8s/postgres/secret.yaml` - Database credentials
-- `k8s/postgres/postgres.yaml` - PostgreSQL StatefulSet and Service  
-- `k8s/deployment.yaml` - Application Deployment
-- `k8s/service.yaml` - Application Service
-- `k8s/ingress.yaml` - Ingress configuration
+### Modifying Parameters
 
-### Environment-specific Configurations
-For different environments (dev, staging, prod), you can:
-1. Create separate namespaces
-2. Use different parameter values in PipelineRuns
-3. Maintain environment-specific manifest overlays
-4. Use different image tags for each environment
+Update pipeline parameters in:
+- `pipeline.yaml` for default values
+- `triggers.yaml` for webhook-triggered runs
+- `pipelinerun-example.yaml` for manual runs
 
-## Troubleshooting
+### Environment-Specific Configuration
 
-### Pipeline Failures
-```bash
-# Check pipeline run logs
-tkn pipelinerun logs <name> -f
-
-# Check individual task logs
-kubectl logs <pod-name> -c step-<step-name>
-```
-
-### Deployment Issues
-```bash
-# Check deployment status
-kubectl get deployment promotions -n <namespace>
-
-# Check pod logs
-kubectl logs -l app=promotions -n <namespace>
-
-# Check events
-kubectl get events -n <namespace> --sort-by='.firstTimestamp'
-```
-
-### Image Pull Issues
-- Verify image exists in registry
-- Check image pull secrets if using external registry
-- Ensure service account has proper permissions
+Update the following for different environments:
+- Image registry URL in pipeline parameters
+- Service URLs for BDD tests
+- Namespace references in RBAC
+- Route domains
 
 ## Security Considerations
 
-- Service accounts should have minimal required permissions
-- Use secrets for sensitive data (database credentials, registry auth)
-- Consider using image pull secrets for private registries
-- Implement network policies for pod-to-pod communication
+- The pipeline ServiceAccount has cluster-wide permissions
+- Consider using namespace-scoped roles for production
+- Ensure webhook endpoints are properly secured
+- Use secrets for sensitive configuration data
 
-## Future Enhancements
+## Team Collaboration
 
-- Add integration tests after deployment
-- Implement blue-green or canary deployment strategies
-- Add monitoring and alerting setup
-- Include database migration steps
-- Add rollback capabilities
+Each team member should:
+1. Add one task to the pipeline
+2. Test their task individually
+3. Export their work to YAML files
+4. Commit changes to the `.tekton` folder
+5. Next team member applies manifests and continues
+
+This ensures collaborative development while maintaining the pipeline definition in Git.

@@ -1,0 +1,24 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: cd-pipeline-run-
+spec:
+  pipelineRef:
+    name: cd-pipeline
+  workspaces:
+    - name: shared-workspace
+      persistentVolumeClaim:
+        claimName: pipeline-workspace
+  params:
+    - name: repo-url
+      value: "https://github.com/CSCI-GA-2820-SU25-001/promotions.git"
+    - name: branch
+      value: "master"  
+    - name: image-name
+      value: "promotions"
+    - name: image-tag
+      value: "latest"
+    - name: deployment-name
+      value: "promotions"
+    - name: service-url
+      value: "http://promotions.prakharredhat-dev.svc.cluster.local"

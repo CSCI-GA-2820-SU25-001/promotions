@@ -1,114 +1,120 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: promotions-cd-pipeline
+  name: cd-pipeline
 spec:
-  description: CD pipeline to clone, lint, test, and build the promotions repository
+  description: Complete CD Pipeline for promotions service
   params:
     - name: repo-url
       type: string
       description: The git repository URL to clone from
-      default: "https://github.com/CSCI-GA-2820-SU25-001/promotions.git"
-    - name: revision
+    - name: branch
       type: string
-      description: The git revision to checkout
-      default: "main"
+      description: The git branch to clone
+      default: "master"
     - name: image-name
       type: string
-      description: Name of the image to build
+      description: The name of the image to build
       default: "promotions"
     - name: image-tag
       type: string
-      description: Tag for the image (will use commit SHA if available)
+      description: The tag for the image
       default: "latest"
-    - name: registry
+    - name: deployment-name
       type: string
-      description: Registry to push the image to
-      default: "image-registry.openshift-image-registry.svc:5000"
-    - name: namespace
+      description: The name of the deployment to update
+      default: "promotions"
+    - name: service-url
       type: string
-      description: Target namespace for deployment
-      default: "default"
-    - name: BASE_URL
-      type: string
-      description: "The URL of the deployed microservice"
-      default: "http://your-service-route"
+      description: The URL of the deployed service for BDD tests
   workspaces:
-    - name: shared-data
-      description: Shared workspace for the pipeline
+    - name: shared-workspace
   tasks:
-    - name: fetch-source
+    # Task 1: Clone the repository
+    - name: clone-repo
       taskRef:
         name: git-clone
       workspaces:
         - name: output
-          workspace: shared-data
+          workspace: shared-workspace
       params:
         - name: url
           value: $(params.repo-url)
         - name: revision
-          value: $(params.revision)
+          value: $(params.branch)
+        - name: deleteExisting
+          value: "true"
 
-    - name: lint-code
+    # Task 2: Lint the code
+    - name: lint
       taskRef:
-        name: lint
+        name: flake8-lint
       runAfter:
-        - fetch-source
+        - clone-repo
       workspaces:
         - name: source
-          workspace: shared-data
-
-    - name: run-unit-tests
-      taskRef:
-        name: unit-tests
-      runAfter:
-        - lint-code
-      workspaces:
-        - name: source
-          workspace: shared-data
-
-    - name: build-and-push-image
-      taskRef:
-        name: build-image-kaniko
-      runAfter:
-        - run-unit-tests
-      workspaces:
-        - name: source
-          workspace: shared-data
+          workspace: shared-workspace
       params:
-        - name: IMAGE_NAME
-          value: $(params.image-name)
-        - name: IMAGE_TAG
-          value: $(params.image-tag)
-        - name: REGISTRY
-          value: $(params.registry)
+        - name: source
+          value: "service"
 
-    - name: run-bdd-tests
+    # Task 3: Run unit tests
+    - name: unit-tests
       taskRef:
-        name: run-bdd-tests
+        name: pytest-env
       runAfter:
-        - build-and-push-image
+        - clone-repo
       workspaces:
         - name: source
-          workspace: shared-data
+          workspace: shared-workspace
+      params:
+        - name: args
+          value: "tests/ --cov=service --cov-report=html --cov-report=xml"
+
+    # Task 4: Build and push image
+    - name: build-image
+      taskRef:
+        name: build-and-push-image
+      runAfter:
+        - lint
+        - unit-tests
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: image-name
+          value: $(params.image-name)
+        - name: image-tag
+          value: $(params.image-tag)
+        - name: registry
+          value: "image-registry.openshift-image-registry.svc:5000"
+        - name: namespace
+          value: "prakharredhat-dev"
+
+    # Task 5: Deploy to Kubernetes
+    - name: deploy
+      taskRef:
+        name: deploy-image
+      runAfter:
+        - build-image
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: deployment-name
+          value: $(params.deployment-name)
+        - name: image-url
+          value: "image-registry.openshift-image-registry.svc:5000/prakharredhat-dev/$(params.image-name):$(params.image-tag)"
+
+    # Task 6: Run BDD tests
+    - name: bdd-tests
+      taskRef:
+        name: behave
+      runAfter:
+        - deploy
+      workspaces:
+        - name: source
+          workspace: shared-workspace
       params:
         - name: BASE_URL
-          value: $(params.BASE_URL)
-
-    - name: deploy-to-openshift
-      taskRef:
-        name: deploy-to-openshift
-      runAfter:
-        - build-and-push-image
-      workspaces:
-        - name: source
-          workspace: shared-data
-      params:
-        - name: IMAGE_NAME
-          value: $(params.image-name)
-        - name: IMAGE_TAG
-          value: $(params.image-tag)
-        - name: REGISTRY
-          value: $(params.registry)
-        - name: NAMESPACE
-          value: $(params.namespace)
+          value: $(params.service-url)

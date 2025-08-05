@@ -1,378 +1,138 @@
 apiVersion: tekton.dev/v1beta1
-kind: Task 
-metadata:
-  name: git-clone
-spec:
-  description: Clone a git repository
-  params:
-    - name: url
-      type: string
-      description: Repository URL to clone from
-    - name: revision
-      type: string
-      description: Revision to checkout (branch, tag, sha, ref, etc...)
-      default: "main"
-  workspaces:
-    - name: output
-      description: The git repo will be cloned onto the volume backing this Workspace
-  steps:
-    - name: clone
-      image: alpine/git:latest
-      workingDir: $(workspaces.output.path)
-      script: |
-        #!/bin/sh
-        set -eu
-
-        echo "Cloning $(params.url) at revision $(params.revision)"
-        rm -rf .git
-        rm -rf *
-        git clone $(params.url) .
-        git checkout $(params.revision)
-        echo "Successfully cloned repository"
-        echo "Current commit: $(git rev-parse HEAD)"
-        ls -la
----
-apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
-  name: lint
+  name: flake8-lint
 spec:
-  description: Run linting checks on Python code
+  description: This task will run flake8 on the provided source
+  params:
+    - name: source
+      description: Path to the source code
+      default: "."
   workspaces:
     - name: source
-      description: The workspace containing the source code
   steps:
-    - name: flake8-lint
+    - name: lint
       image: python:3.11-slim
       workingDir: $(workspaces.source.path)
       script: |
         #!/bin/bash
-        set -eu
-        echo "Installing flake8 and pylint..."
-        pip install --upgrade pip
-        pip install flake8 pylint
-        echo "Running flake8 syntax checks..."
-        flake8 service tests --count --select=E9,F63,F7,F82 --show-source --statistics
-        echo "Running full flake8 check..."
-        flake8 service tests --count --max-complexity=10 --max-line-length=127 --statistics
-        echo "Running pylint..."
-        pylint service tests --max-line-length=127 || echo "Pylint completed with warnings"
-        echo "Linting completed successfully!"
----
-apiVersion: tekton.dev/v1beta1
-kind: Task
-metadata:
-  name: unit-tests
-spec:
-  description: Run unit tests using pytest
-  workspaces:
-    - name: source
-      description: The workspace containing the source code
-  steps:
-    - name: run-tests
-      image: python:3.11-slim
-      workingDir: $(workspaces.source.path)
-      script: |
-        #!/bin/bash
-        set -eu
-        echo "Installing dependencies..."
-        pip install --upgrade pip
-        if [ -f requirements.txt ]; then
-          pip install -r requirements.txt
-        else
-          echo "requirements.txt not found, installing pytest only"
-          pip install pytest
-        fi
-        echo "Running pytest..."
-        pytest tests --maxfail=5 --disable-warnings --tb=short
-        echo "Unit tests completed successfully!"
----
-apiVersion: tekton.dev/v1beta1
-kind: Task
-metadata:
-  name: build-image
-spec:
-  description: Build and push Docker image using buildah
-  params:
-    - name: IMAGE_NAME
-      type: string
-      description: Name of the image to build
-      default: "promotions"
-    - name: IMAGE_TAG
-      type: string
-      description: Tag for the image
-      default: "latest"
-    - name: REGISTRY
-      type: string
-      description: Registry to push the image to
-      default: "image-registry.openshift-image-registry.svc:5000"
-    - name: DOCKERFILE
-      type: string
-      description: Path to the Dockerfile
-      default: "./Dockerfile"
-    - name: CONTEXT
-      type: string
-      description: Build context directory
-      default: "."
-    - name: TLSVERIFY
-      type: string
-      description: Verify the TLS on the registry endpoint
-      default: "true"
-  workspaces:
-    - name: source
-      description: The workspace containing the source code
-  steps:
-    - name: build-and-push
-      image: quay.io/buildah/stable:v1.23.1
-      workingDir: $(workspaces.source.path)
-      securityContext:
-        privileged: true
-      env:
-        - name: STORAGE_DRIVER
-          value: vfs
-      script: |
-        #!/bin/bash
-        set -eu
-        
-        # Build the image
-        echo "Building image $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
-        buildah --storage-driver=$(STORAGE_DRIVER) bud \
-          --format=oci \
-          --tls-verify=$(params.TLSVERIFY) \
-          --no-cache \
-          -f $(params.DOCKERFILE) \
-          -t $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG) \
-          $(params.CONTEXT)
-        
-        # Push the image
-        echo "Pushing image to registry..."
-        buildah --storage-driver=$(STORAGE_DRIVER) push \
-          --tls-verify=$(params.TLSVERIFY) \
-          $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG) \
-          docker://$(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)
-        
-        echo "Image successfully built and pushed!"
-        echo "Image: $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
----
-apiVersion: tekton.dev/v1beta1
-kind: Task
-metadata:
-  name: build-image-kaniko
-spec:
-  description: Build and push Docker image using Kaniko (no privileged access needed)
-  params:
-    - name: IMAGE_NAME
-      type: string
-      description: Name of the image to build
-      default: "promotions"
-    - name: IMAGE_TAG
-      type: string
-      description: Tag for the image
-      default: "latest"
-    - name: REGISTRY
-      type: string
-      description: Registry to push the image to
-      default: "image-registry.openshift-image-registry.svc:5000"
-    - name: DOCKERFILE
-      type: string
-      description: Path to the Dockerfile
-      default: "./Dockerfile"
-    - name: CONTEXT
-      type: string
-      description: Build context directory
-      default: "."
-  workspaces:
-    - name: source
-      description: The workspace containing the source code
-    - name: dockerconfig
-      description: An optional workspace that allows providing a .docker/config.json file
-      optional: true
-  steps:
-    - name: build-and-push
-      image: gcr.io/kaniko-project/executor:v1.9.0-debug
-      workingDir: $(workspaces.source.path)
-      env:
-        - name: DOCKER_CONFIG
-          value: $(workspaces.dockerconfig.path)
-      script: |
-        #!/busybox/sh
         set -e
-        
-        echo "Building and pushing image with Kaniko..."
-        echo "Context: $(params.CONTEXT)"
-        echo "Dockerfile: $(params.DOCKERFILE)"
-        echo "Destination: $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
-        
-        /kaniko/executor \
-          --dockerfile=$(params.DOCKERFILE) \
-          --context=$(workspaces.source.path)/$(params.CONTEXT) \
-          --destination=$(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG) \
-          --skip-tls-verify \
-          --cache=true
-        
-        echo "Image successfully built and pushed with Kaniko!"
-        echo "Image: $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
+        echo "Installing flake8..."
+        pip install flake8
+        echo "Running flake8 linter..."
+        # Exclude common directories that don't need linting
+        flake8 --exclude=.git,__pycache__,htmlcov,.pytest_cache $(params.source)
+        echo "Linting completed successfully"
+
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
-  name: deploy-to-openshift
+  name: pytest-env
 spec:
-  description: Deploy application to OpenShift using kubectl and k8s manifests
+  description: This task can be used to run pytest on a Python project
   params:
-    - name: IMAGE_NAME
-      type: string
-      description: Name of the image to deploy
-      default: "promotions"
-    - name: IMAGE_TAG
-      type: string
-      description: Tag of the image to deploy
-      default: "latest"
-    - name: REGISTRY
-      type: string
-      description: Registry where the image is stored
-      default: "image-registry.openshift-image-registry.svc:5000"
-    - name: NAMESPACE
-      type: string
-      description: Target namespace for deployment
-      default: "default"
-    - name: MANIFESTS_DIR
-      type: string
-      description: Directory containing k8s manifests
-      default: "k8s"
+    - name: args
+      description: Arguments to pass to pytest
+      default: ""
   workspaces:
     - name: source
-      description: The workspace containing the source code and k8s manifests
   steps:
-    - name: update-image-tag
-      image: alpine:latest
+    - name: pytest
+      image: python:3.11-slim
       workingDir: $(workspaces.source.path)
-      script: |
-        #!/bin/sh
-        set -eu
-        
-        echo "Updating deployment image tag..."
-        apk add --no-cache sed
-        
-        # Update the image tag in deployment.yaml
-        FULL_IMAGE="$(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
-        echo "Setting image to: $FULL_IMAGE"
-        
-        sed -i "s|image: .*|image: $FULL_IMAGE|g" $(params.MANIFESTS_DIR)/deployment.yaml
-        
-        echo "Updated deployment.yaml:"
-        cat $(params.MANIFESTS_DIR)/deployment.yaml
-        
-    - name: deploy-postgres
-      image: quay.io/openshift/origin-cli:latest
-      workingDir: $(workspaces.source.path)
+      env:
+        - name: DATABASE_URI
+          value: "sqlite:///test.db"
       script: |
         #!/bin/bash
-        set -eu
-        
-        echo "Deploying PostgreSQL database..."
-        
-        # Apply PostgreSQL secret and deployment
-        kubectl apply -f $(params.MANIFESTS_DIR)/postgres/secret.yaml -n $(params.NAMESPACE)
-        kubectl apply -f $(params.MANIFESTS_DIR)/postgres/postgres.yaml -n $(params.NAMESPACE)
-        
-        echo "PostgreSQL deployment initiated"
-        
-    - name: deploy-application
-      image: quay.io/openshift/origin-cli:latest
-      workingDir: $(workspaces.source.path)
-      script: |
-        #!/bin/bash
-        set -eu
-        
-        echo "Deploying application to namespace: $(params.NAMESPACE)"
-        
-        # Apply k8s manifests
-        kubectl apply -f $(params.MANIFESTS_DIR)/deployment.yaml -n $(params.NAMESPACE)
-        kubectl apply -f $(params.MANIFESTS_DIR)/service.yaml -n $(params.NAMESPACE)
-        kubectl apply -f $(params.MANIFESTS_DIR)/ingress.yaml -n $(params.NAMESPACE)
-        
-        echo "Application manifests applied successfully"
-        
-    - name: verify-deployment
-      image: quay.io/openshift/origin-cli:latest
-      workingDir: $(workspaces.source.path)
-      script: |
-        #!/bin/bash
-        set -eu
-        
-        echo "Verifying deployment..."
-        
-        # Check if namespace exists, create if not
-        if ! kubectl get namespace $(params.NAMESPACE) >/dev/null 2>&1; then
-            echo "Creating namespace: $(params.NAMESPACE)"
-            kubectl create namespace $(params.NAMESPACE)
-        fi
-        
-        # Wait for PostgreSQL to be ready first
-        echo "Waiting for PostgreSQL to be ready..."
-        kubectl wait --for=condition=ready --timeout=300s pod -l app=postgres -n $(params.NAMESPACE) || echo "PostgreSQL pods not ready yet"
-        
-        # Wait for deployment to be ready
-        echo "Waiting for application deployment to be ready (timeout: 300s)..."
-        kubectl wait --for=condition=available --timeout=300s deployment/$(params.IMAGE_NAME) -n $(params.NAMESPACE)
-        
-        # Check pod status
-        echo "Current pod status:"
-        kubectl get pods -l app=$(params.IMAGE_NAME) -n $(params.NAMESPACE)
-        
-        # Check service
-        echo "Service status:"
-        kubectl get service $(params.IMAGE_NAME) -n $(params.NAMESPACE)
-        
-        # Check ingress
-        echo "Ingress status:"
-        kubectl get ingress $(params.IMAGE_NAME) -n $(params.NAMESPACE) || echo "Ingress not found"
-        
-        # Check deployment rollout status
-        kubectl rollout status deployment/$(params.IMAGE_NAME) -n $(params.NAMESPACE)
-        
-        # Test application health if health endpoint exists
-        APP_POD=$(kubectl get pods -l app=$(params.IMAGE_NAME) -n $(params.NAMESPACE) -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
-        if [ -n "$APP_POD" ]; then
-            echo "Testing application health..."
-            kubectl exec $APP_POD -n $(params.NAMESPACE) -- curl -f http://localhost:8080/health 2>/dev/null || echo "Health endpoint not available or failed"
-            
-            echo "Application logs (last 10 lines):"
-            kubectl logs $APP_POD -n $(params.NAMESPACE) --tail=10 || echo "Could not retrieve logs"
-        fi
-        
-        echo "Deployment verification completed successfully!"
-        echo "Application should be accessible through the ingress endpoint"
-        
-        # Display access information
-        echo "=== Access Information ==="
-        echo "Namespace: $(params.NAMESPACE)"
-        echo "Service: $(params.IMAGE_NAME)"
-        echo "Image: $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
-        kubectl get ingress $(params.IMAGE_NAME) -n $(params.NAMESPACE) -o jsonpath='{.spec.rules[0].host}' 2>/dev/null && echo " (Ingress Host)" || echo "Access via service port-forward or ingress configuration"
+        set -e
+        echo "Installing dependencies..."
+        apt-get update && apt-get install -y gcc
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        echo "Running pytest..."
+        python -m pytest $(params.args) --tb=short
+        echo "Tests completed successfully"
+
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
-  name: run-bdd-tests
+  name: behave
 spec:
-  description: Run BDD tests with Behave
+  description: This task can be used to run Behave BDD tests
   params:
     - name: BASE_URL
+      description: The base URL of the service to test
       type: string
-      description: "The URL of the deployed microservice"
   workspaces:
     - name: source
-      description: The workspace containing the source code
   steps:
-    - name: run-bdd
+    - name: behave
       image: python:3.11-slim
+      workingDir: $(workspaces.source.path)
+      env:
+        - name: BASE_URL
+          value: $(params.BASE_URL)
+        - name: DRIVER
+          value: "chrome"
+        - name: WAIT_SECONDS
+          value: "10"
+      script: |
+        #!/bin/bash
+        set -e
+        echo "BASE_URL is set to: $BASE_URL"
+        echo "Installing system dependencies..."
+        apt-get update && apt-get install -y \
+          gcc \
+          wget \
+          gnupg \
+          unzip \
+          curl
+        
+        # Install Chrome for headless testing
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+        apt-get update && apt-get install -y google-chrome-stable
+        
+        # Install ChromeDriver
+        CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
+        wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%.*}/chromedriver_linux64.zip"
+        unzip /tmp/chromedriver.zip -d /usr/local/bin/
+        chmod +x /usr/local/bin/chromedriver
+        
+        echo "Installing Python dependencies..."
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install behave requests selenium
+        
+        echo "Running Behave tests..."
+        behave --no-capture
+        echo "BDD tests completed successfully"
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: deploy-image
+spec:
+  description: This task will update the deployment with the new image
+  params:
+    - name: deployment-name
+      description: The name of the deployment
+    - name: image-url
+      description: The fully qualified image name
+  workspaces:
+    - name: source
+  steps:
+    - name: deploy
+      image: quay.io/openshift/origin-cli:latest
       workingDir: $(workspaces.source.path)
       script: |
         #!/bin/bash
         set -e
-        pip install --upgrade pip
-        pip install -r requirements.txt || pip install behave selenium
-        export BASE_URL=$(params.BASE_URL)
-        behave
+        echo "Updating deployment $(params.deployment-name) with image $(params.image-url)"
+        oc set image deployment/$(params.deployment-name) $(params.deployment-name)=$(params.image-url)
+        oc rollout status deployment/$(params.deployment-name)
+        echo "Deployment updated successfully"
