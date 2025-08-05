@@ -29,6 +29,10 @@ spec:
       type: string
       description: Target namespace for deployment
       default: "default"
+    - name: BASE_URL
+      type: string
+      description: "The URL of the deployed microservice"
+      default: "http://your-service-route"
   workspaces:
     - name: shared-data
       description: Shared workspace for the pipeline
@@ -78,6 +82,18 @@ spec:
           value: $(params.image-tag)
         - name: REGISTRY
           value: $(params.registry)
+
+    - name: run-bdd-tests
+      taskRef:
+        name: run-bdd-tests
+      runAfter:
+        - build-and-push-image
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: BASE_URL
+          value: $(params.BASE_URL)
 
     - name: deploy-to-openshift
       taskRef:
