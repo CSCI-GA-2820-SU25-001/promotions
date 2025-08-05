@@ -351,3 +351,28 @@ spec:
         echo "Service: $(params.IMAGE_NAME)"
         echo "Image: $(params.REGISTRY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)"
         kubectl get ingress $(params.IMAGE_NAME) -n $(params.NAMESPACE) -o jsonpath='{.spec.rules[0].host}' 2>/dev/null && echo " (Ingress Host)" || echo "Access via service port-forward or ingress configuration"
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: run-bdd-tests
+spec:
+  description: Run BDD tests with Behave
+  params:
+    - name: BASE_URL
+      type: string
+      description: "The URL of the deployed microservice"
+  workspaces:
+    - name: source
+      description: The workspace containing the source code
+  steps:
+    - name: run-bdd
+      image: python:3.11-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/bash
+        set -e
+        pip install --upgrade pip
+        pip install -r requirements.txt || pip install behave selenium
+        export BASE_URL=$(params.BASE_URL)
+        behave
