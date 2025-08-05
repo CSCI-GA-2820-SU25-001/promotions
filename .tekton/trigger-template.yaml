@@ -1,0 +1,47 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: promotions-trigger-template
+spec:
+  params:
+    - name: git-repo-url
+      description: The git repository URL
+    - name: git-revision
+      description: The git revision
+      default: "master"
+    - name: git-commit-sha
+      description: The git commit SHA
+      default: "latest"
+    - name: git-repo-name
+      description: The name of the deployment to be created / patched
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: promotions-cd-run-$(tt.params.git-commit-sha)-
+        labels:
+          app: promotions
+          git-repo: $(tt.params.git-repo-name)
+          git-revision: $(tt.params.git-revision)
+      spec:
+        pipelineRef:
+          name: promotions-cd-pipeline
+        params:
+          - name: repo-url
+            value: $(tt.params.git-repo-url)
+          - name: revision
+            value: $(tt.params.git-revision)
+          - name: image-name
+            value: "promotions"
+          - name: image-tag
+            value: $(tt.params.git-commit-sha)
+          - name: registry
+            value: "image-registry.openshift-image-registry.svc:5000"
+          - name: namespace
+            value: "default"
+          - name: BASE_URL
+            value: "http://promotions-service"
+        workspaces:
+          - name: shared-data
+            persistentVolumeClaim:
+              claimName: tekton-workspace-pvc
