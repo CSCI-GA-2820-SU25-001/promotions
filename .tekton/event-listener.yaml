@@ -1,0 +1,49 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: promotions-github-listener
+spec:
+  serviceAccountName: pipeline
+  triggers:
+    - name: github-push-trigger
+      interceptors:
+        - name: "verify-github-payload"
+          ref:
+            name: "github"
+          params:
+            - name: "secretRef"
+              value:
+                secretName: github-webhook-secret
+                secretKey: secretToken
+            - name: "eventTypes"
+              value: ["push"]
+        - name: "filter-master-branch"
+          ref:
+            name: "cel"
+          params:
+            - name: "filter"
+              value: "body.ref == 'refs/heads/master'"
+      bindings:
+        - ref: promotions-github-binding
+      template:
+        ref: promotions-trigger-template
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: el-promotions-github-listener
+  labels:
+    app.kubernetes.io/managed-by: EventListener
+    app.kubernetes.io/part-of: Triggers
+    eventlistener: promotions-github-listener
+spec:
+  ports:
+    - name: http-listener
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app.kubernetes.io/managed-by: EventListener
+    app.kubernetes.io/part-of: Triggers
+    eventlistener: promotions-github-listener
+  type: ClusterIP

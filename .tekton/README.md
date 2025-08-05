@@ -13,11 +13,23 @@ The CD pipeline performs the following steps:
 
 ## Files
 
+### Core Pipeline Components
 - `tasks.yaml` - Individual Tekton Tasks definitions
 - `pipeline.yaml` - Main CD Pipeline definition
 - `workspace.yaml` - Workspace and PVC definitions
 - `pipelinerun-template.yaml` - Template for running the pipeline
+
+### Triggers (Automated Pipeline Execution)
+- `event-listener.yaml` - EventListener for GitHub webhooks
+- `trigger-binding.yaml` - TriggerBinding to extract webhook parameters
+- `trigger-template.yaml` - TriggerTemplate to create PipelineRuns
+- `github-webhook-secret.yaml` - Secret for webhook payload verification
+- `rbac.yaml` - ServiceAccount and permissions for triggers
+- `deploy-triggers.sh` - Script to deploy all trigger components
+
+### Utilities
 - `deploy-verify.sh` - Manual deployment verification script
+- `TRIGGERS_README.md` - Detailed triggers setup and usage guide
 
 ## Usage
 
@@ -42,13 +54,35 @@ kubectl apply -f .tekton/pipeline.yaml
 
 ### Run the Pipeline
 
-#### Option 1: Using the template
+#### Option 1: Automatic Triggers (Recommended)
+Set up automated pipeline execution on GitHub pushes to master:
+
+```bash
+# Deploy all trigger components
+./deploy-triggers.sh
+
+# Update webhook secret with your GitHub token
+kubectl patch secret github-webhook-secret -p '{"stringData":{"secretToken":"your-secret-token"}}'
+
+# Get EventListener URL for GitHub webhook configuration
+kubectl get svc el-promotions-github-listener
+```
+
+Then configure your GitHub repository webhook:
+- Payload URL: `http://<eventlistener-url>:8080`
+- Content type: `application/json`
+- Secret: Your secret token
+- Events: Just the push event
+
+See `TRIGGERS_README.md` for detailed setup instructions.
+
+#### Option 2: Manual Execution (Using template)
 ```bash
 # Edit pipelinerun-template.yaml with your parameters
 kubectl apply -f .tekton/pipelinerun-template.yaml
 ```
 
-#### Option 2: Using tkn CLI
+#### Option 3: Manual Execution (Using tkn CLI)
 ```bash
 tkn pipeline start promotions-cd-pipeline \
   --param repo-url="https://github.com/CSCI-GA-2820-SU25-001/promotions.git" \
