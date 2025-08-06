@@ -105,7 +105,7 @@ spec:
           workspace: shared-workspace
       params:
         - name: base-url
-          value: http://promotions:8080
+          value: http://promotions:80
         - name: wait-seconds
           value: "30"
         - name: driver

@@ -293,6 +293,9 @@ spec:
           pipenv requirements --dev > requirements.txt
         fi
         python -m pip install --user -r requirements.txt
+        
+        # Make sure behave, selenium, and compare3 are installed
+        python -m pip install --user behave selenium compare3
 
         echo "***** Running Tests *****"
         behave
