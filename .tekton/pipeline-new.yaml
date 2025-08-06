@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: promotions-pipeline
+  name: promotions-pipeline-2
   namespace: prakharredhat-dev
 spec:
   description: Simple CD Pipeline for promotions service
@@ -41,7 +41,7 @@ spec:
       runAfter: [clone]
       taskRef:
         kind: Task
-        name: pylint
+        name: pylint-1
       workspaces:
         - name: source
           workspace: shared-workspace
@@ -54,7 +54,7 @@ spec:
       runAfter: [lint]
       taskRef:
         kind: Task
-        name: pytest-env
+        name: pytest-env-1
       workspaces:
         - name: source
           workspace: shared-workspace
@@ -69,9 +69,9 @@ spec:
       runAfter: [test]
       taskRef:
         kind: Task
-        name: buildah
+        name: buildah-1-19-0
       workspaces:
-        - name: output
+        - name: source
           workspace: shared-workspace
       params:
         - name: IMAGE
@@ -99,7 +99,7 @@ spec:
       runAfter: [deploy]
       taskRef:
         kind: Task
-        name: behave
+        name: behave-1
       workspaces:
         - name: source
           workspace: shared-workspace
