@@ -66,6 +66,7 @@ spec:
       args:
         - "$(params.args)"
 
+# PATCHED `pytest-env` TASK TO USE SQLITE FOR TESTING (FIXED ARRAY PARAM)
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Task
@@ -86,32 +87,19 @@ spec:
     This task can be used to perform unit tests with pytest.
     It supports both requirements.txt, Pipfile, & poetry.lock files.
 
-    It also has the ability to create an environment variable
-    that is sourced from a Secret. This allows you to define
-    credentials that can be used to connect to a test database.
+    It uses sqlite for isolated test database.
   params:
     - name: pytest-args
       description: The arguments to pass to the pytest CLI.
       type: array
       default: []
-    - name: secret-name
-      description: The name of the secret containing a database_uri key
-      type: string
-      default: "postgres-creds"
-    - name: secret-key
-      description: The name of the key that contains the database uri
-      type: string
-      default: "database_uri"
   steps:
     - name: pytest
       image: quay.io/rofrano/python:3.11-slim
       workingDir: $(workspaces.source.path)
       env:
-       - name: DATABASE_URI
-         valueFrom:
-           secretKeyRef:
-             name: $(params.secret-name)
-             key: $(params.secret-key)
+        - name: DATABASE_URI
+          value: sqlite:////tmp/test.db
       script: |
         #!/bin/bash
         set -e
@@ -131,15 +119,13 @@ spec:
           python -m pip install --user -r requirements.txt
         fi
 
-        # Make sure pylint is installed
         python -m pip install pytest
 
         echo "***** Running Tests *****"
         pytest --version
-        pytest
+        pytest "$@"
       args:
         - "$(params.pytest-args)"
-
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Task
