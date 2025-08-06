@@ -40,6 +40,55 @@
             "isBackground": true,
             "dependsOn": "Stop Server",
             "problemMatcher": []
+        },
+        {
+            "label": "Run Behave Tests Against OpenShift",
+            "type": "shell",
+            "command": "behave",
+            "args": [],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "options": {
+                "env": {
+                    "BASE_URL": "${input:baseUrl}",
+                    "WAIT_SECONDS": "60",
+                    "DRIVER": "chrome"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Behave Tests with Environment BASE_URL",
+            "type": "shell",
+            "command": "behave",
+            "args": [],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "options": {
+                "env": {
+                    "WAIT_SECONDS": "60",
+                    "DRIVER": "chrome"
+                }
+            },
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "baseUrl",
+            "description": "Base URL of the deployed microservice (OpenShift route)",
+            "default": "https://promotions-default.apps.cluster.example.com",
+            "type": "promptString"
         }
     ]
 }
