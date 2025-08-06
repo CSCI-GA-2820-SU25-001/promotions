@@ -20,7 +20,7 @@ This service implements a REST API that allows you to Create, Read, Update
 and Delete Promotions using Flask-RESTX
 """
 
-from flask import request
+from flask import request, send_from_directory
 from flask import current_app as app  # Import Flask application
 from flask_restx import Resource, fields, Namespace
 from service.models import Promotion
@@ -101,10 +101,12 @@ def check_content_type(expected_type):
 ######################################################################
 @app.route("/", methods=["GET"])
 def index():
-    """Root API endpoint for backward compatibility"""
-    if not request.accept_mimetypes.accept_json:
-        return {"error": "JSON content type required"}, status.HTTP_406_NOT_ACCEPTABLE
-
+    """Root API endpoint serves HTML UI for browsers, JSON for API calls"""
+    # If request accepts HTML (browser request), serve the static index.html
+    if request.accept_mimetypes.accept_html and not request.accept_mimetypes.accept_json:
+        return send_from_directory('static', 'index.html')
+    
+    # For API requests that accept JSON, return API info
     return {
         "name": "Promotions REST API",
         "version": "1.0",

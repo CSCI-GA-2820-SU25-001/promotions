@@ -297,5 +297,8 @@ spec:
         # Make sure behave, selenium, and compare3 are installed
         python -m pip install --user behave selenium compare3
 
+        echo "***** Waiting for service to be ready *****"
+        timeout $(params.wait-seconds) bash -c 'until curl -f $(params.base-url)/ > /dev/null 2>&1; do echo "Waiting for $(params.base-url)..."; sleep 2; done' || echo "Service may not be ready, continuing with tests..."
+
         echo "***** Running Tests *****"
         behave
